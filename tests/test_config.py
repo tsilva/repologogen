@@ -29,6 +29,7 @@ class TestConfigModel:
         assert config.output_path == "logo.png"
         assert config.trim is True
         assert config.compress is True
+        assert config.refine_prompt is True
 
     def test_custom_values(self):
         """Test custom configuration values."""

@@ -3,7 +3,10 @@
 # User-wide configuration: ~/.repologogen/config.yaml
 
 # AI Model for image generation
-model: google/gemini-3-pro-image-preview
+model: google/gemini-3.1-flash-image-preview
+
+# AI Model for text tasks (README digestion, prompt refinement)
+text_model: google/gemini-3-flash-preview
 
 # Image size (1K, 2K, etc.)
 size: 1K
@@ -53,10 +56,10 @@ trim: true
 trim_margin: 5
 
 # Additional instructions to append to the AI prompt
-additional_instructions: >-
-  For projects with 'claude' anywhere in the name (case-insensitive),
-  the Claude mascot (Anthropic's friendly AI assistant character - a warm,
-  approachable figure) MUST be the main protagonist in the logo design.
+additional_instructions: ""
+
+# Refine the assembled prompt via LLM before image generation
+refine_prompt: true
 
 # Custom prompt template (null to use default)
 prompt_template: null

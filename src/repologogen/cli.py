@@ -11,7 +11,13 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from repologogen.config import ConfigValidationError, expand_path, load_merged_config
 from repologogen.detector import detect_project, find_readme, get_visual_metaphor
-from repologogen.generator import ImageGenerator, ImageGeneratorError, build_prompt, digest_readme
+from repologogen.generator import (
+    ImageGenerator,
+    ImageGeneratorError,
+    build_prompt,
+    digest_readme,
+    refine_prompt,
+)
 from repologogen.processor import (
     chromakey_to_transparent,
     compress_png,
@@ -34,6 +40,7 @@ def run_generation(
     verbose: bool = False,
     dry_run: bool = False,
     template_vars: dict | None = None,
+    no_refine: bool = False,
 ) -> int:
     """Run the logo generation workflow."""
     project_name = project_path.resolve().name
@@ -84,7 +91,9 @@ def run_generation(
 
                     api_key = get_api_key(project_path) or ""
                 if api_key:
-                    project_description = digest_readme(readme_content, api_key)
+                    project_description = digest_readme(
+                        readme_content, api_key, text_model=config.text_model
+                    )
             except Exception:
                 pass  # Fail gracefully — description is optional
 
@@ -108,7 +117,7 @@ def run_generation(
     if verbose:
         console.print(f"[dim]Output path: {resolved_output}[/dim]")
 
-    prompt = build_prompt(
+    raw_prompt = build_prompt(
         project_name=project_name,
         style=config.style,
         icon_colors=config.icon_colors,
@@ -121,9 +130,27 @@ def run_generation(
         project_description=project_description,
     )
 
-    if verbose:
-        console.print("\n[dim]Prompt:[/dim]")
-        console.print(f"[dim]{prompt}[/dim]")
+    # Refine prompt via LLM unless disabled
+    prompt = raw_prompt
+    should_refine = config.refine_prompt and not no_refine
+    if should_refine:
+        with console.status("[bold green]Refining prompt..."):
+            api_key = os.environ.get("OPENROUTER_API_KEY", "")
+            if not api_key:
+                from repologogen.config import get_api_key
+
+                api_key = get_api_key(project_path) or ""
+            if api_key:
+                prompt = refine_prompt(
+                    raw_prompt, config.model, api_key, text_model=config.text_model
+                )
+
+    if verbose and prompt != raw_prompt:
+        console.print("\n[dim]Raw prompt:[/dim]")
+        console.print(f"[dim]{raw_prompt}[/dim]")
+
+    console.print("\n[bold blue]Prompt:[/bold blue]")
+    console.print(prompt)
 
     if dry_run:
         console.print("\n[bold cyan]Dry Run Summary:[/bold cyan]")
@@ -134,8 +161,7 @@ def run_generation(
         console.print(f"  Model: [green]{config.model}[/green]")
         if project_description:
             console.print(f"  Description: [green]{project_description}[/green]")
-        console.print("\n[dim]Prompt:[/dim]")
-        console.print(prompt)
+        console.print(f"  Refinement: [green]{'enabled' if should_refine else 'disabled'}[/green]")
         return 0
 
     try:
@@ -225,6 +251,7 @@ def main() -> int:
         "--no-trim", action="store_true", help="Disable transparent padding trimming"
     )
     parser.add_argument("--no-compress", action="store_true", help="Disable PNG compression")
+    parser.add_argument("--no-refine", action="store_true", help="Disable LLM prompt refinement")
     parser.add_argument(
         "--dry-run", action="store_true", help="Show what would be generated without executing"
     )
@@ -264,6 +291,7 @@ def main() -> int:
         verbose=args.verbose,
         dry_run=args.dry_run,
         template_vars=template_vars,
+        no_refine=args.no_refine,
     )
 
 

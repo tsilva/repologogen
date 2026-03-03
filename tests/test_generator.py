@@ -11,6 +11,7 @@ from repologogen.generator import (
     ImageGeneratorError,
     build_prompt,
     digest_readme,
+    refine_prompt,
 )
 
 
@@ -248,3 +249,72 @@ class TestDigestReadme:
         assert result == ""
         result = digest_readme("   ", "test-key")
         assert result == ""
+
+
+class TestRefinePrompt:
+    """Test refine_prompt function."""
+
+    def test_returns_refined_text_on_success(self):
+        """Test that a refined prompt is returned from API response."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.raise_for_status = Mock()
+        mock_response.json.return_value = {
+            "choices": [{"message": {"content": "Refined prompt text."}}]
+        }
+
+        with patch("repologogen.generator.httpx.Client") as mock_client_cls:
+            mock_client = Mock()
+            mock_client.__enter__ = Mock(return_value=mock_client)
+            mock_client.__exit__ = Mock(return_value=False)
+            mock_client.post.return_value = mock_response
+            mock_client_cls.return_value = mock_client
+
+            result = refine_prompt("Messy redundant prompt", "google/gemini-3-pro", "test-key")
+            assert result == "Refined prompt text."
+
+    def test_system_prompt_includes_target_model(self):
+        """Test that the system prompt mentions the target model."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.raise_for_status = Mock()
+        mock_response.json.return_value = {
+            "choices": [{"message": {"content": "Refined."}}]
+        }
+
+        with patch("repologogen.generator.httpx.Client") as mock_client_cls:
+            mock_client = Mock()
+            mock_client.__enter__ = Mock(return_value=mock_client)
+            mock_client.__exit__ = Mock(return_value=False)
+            mock_client.post.return_value = mock_response
+            mock_client_cls.return_value = mock_client
+
+            refine_prompt("Test prompt", "google/gemini-3-pro", "test-key")
+
+            call_args = mock_client.post.call_args
+            payload = call_args[1]["json"]
+            system_msg = payload["messages"][0]["content"]
+            assert "google/gemini-3-pro" in system_msg
+
+    def test_returns_original_on_api_error(self):
+        """Test graceful fallback on API error."""
+        with patch("repologogen.generator.httpx.Client") as mock_client_cls:
+            mock_client = Mock()
+            mock_client.__enter__ = Mock(return_value=mock_client)
+            mock_client.__exit__ = Mock(return_value=False)
+            mock_client.post.side_effect = Exception("API error")
+            mock_client_cls.return_value = mock_client
+
+            result = refine_prompt("Original prompt", "some-model", "test-key")
+            assert result == "Original prompt"
+
+    def test_returns_as_is_for_empty_prompt(self):
+        """Test that empty prompt is returned without API call."""
+        with patch("repologogen.generator.httpx.Client") as mock_client_cls:
+            result = refine_prompt("", "some-model", "test-key")
+            assert result == ""
+            mock_client_cls.assert_not_called()
+
+            result = refine_prompt("   ", "some-model", "test-key")
+            assert result == "   "
+            mock_client_cls.assert_not_called()

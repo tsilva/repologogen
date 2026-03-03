@@ -82,6 +82,7 @@ class Config:
     """Configuration for logo generation."""
 
     model: str = "google/gemini-3-pro-image-preview"
+    text_model: str = "google/gemini-3-flash-preview"
     size: str = "1K"
     prompt_template: str | None = None
     style: str = "minimalist"
@@ -98,6 +99,7 @@ class Config:
     compress_quality: int = 80
     trim: bool = True
     trim_margin: int = 5
+    refine_prompt: bool = True
     meta: dict[str, Any] = field(default_factory=dict, repr=False)
 
     @classmethod
@@ -115,6 +117,7 @@ CONFIG_SCHEMA: dict[str, Any] = {
     "additionalProperties": False,
     "properties": {
         "model": {"type": "string"},
+        "text_model": {"type": "string"},
         "size": {"type": "string"},
         "prompt_template": {"type": ["string", "null"]},
         "style": {"type": "string"},
@@ -131,6 +134,7 @@ CONFIG_SCHEMA: dict[str, Any] = {
         "compress_quality": {"type": "integer", "minimum": 0, "maximum": 100},
         "trim": {"type": "boolean"},
         "trim_margin": {"type": "integer", "minimum": 0, "maximum": 25},
+        "refine_prompt": {"type": "boolean"},
         "openrouter_api_key": {"type": "string"},
     },
     "required": [
@@ -217,6 +221,7 @@ def get_bundled_defaults() -> dict[str, Any]:
     """Load bundled default configuration."""
     return {
         "model": "google/gemini-3-pro-image-preview",
+        "text_model": "google/gemini-3-flash-preview",
         "size": "1K",
         "prompt_template": None,
         "style": "minimalist",
@@ -231,6 +236,7 @@ def get_bundled_defaults() -> dict[str, Any]:
         "compress_quality": 80,
         "trim": True,
         "trim_margin": 5,
+        "refine_prompt": True,
     }
 
 

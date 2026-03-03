@@ -168,6 +168,7 @@ def build_prompt(
 def digest_readme(
     readme_content: str,
     api_key: str,
+    text_model: str = "google/gemini-3-flash-preview",
     base_url: str = "https://openrouter.ai/api/v1",
 ) -> str:
     """Send README content to an LLM to produce a concise project description.
@@ -175,6 +176,7 @@ def digest_readme(
     Args:
         readme_content: Raw README file content
         api_key: OpenRouter API key
+        text_model: Model to use for text processing
         base_url: API base URL
 
     Returns:
@@ -189,7 +191,7 @@ def digest_readme(
     }
 
     payload = {
-        "model": "google/gemini-3-flash-preview",
+        "model": text_model,
         "messages": [
             {
                 "role": "system",
@@ -214,3 +216,65 @@ def digest_readme(
             return content.strip()
     except Exception:
         return ""
+
+
+def refine_prompt(
+    raw_prompt: str,
+    target_model: str,
+    api_key: str,
+    text_model: str = "google/gemini-3-flash-preview",
+    base_url: str = "https://openrouter.ai/api/v1",
+) -> str:
+    """Refine an image-generation prompt via LLM to remove redundancy and contradictions.
+
+    Args:
+        raw_prompt: The assembled image-generation prompt
+        target_model: The image model the prompt will be sent to
+        api_key: OpenRouter API key
+        text_model: Model to use for text processing
+        base_url: API base URL
+
+    Returns:
+        Refined prompt, or original on any error
+    """
+    if not raw_prompt.strip():
+        return raw_prompt
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+
+    payload = {
+        "model": text_model,
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    f"You are an image-prompt editor. The following prompt will be sent to "
+                    f"the '{target_model}' image model. Your job:\n"
+                    "- Remove redundant or duplicate instructions\n"
+                    "- Resolve contradictions (keep the more specific directive)\n"
+                    "- Tighten verbose language into concise directives\n"
+                    "- Preserve ALL hex color codes exactly as given\n"
+                    "- Preserve the core creative intent and style\n"
+                    "- Do NOT add new concepts, styles, or instructions\n"
+                    "- Return ONLY the refined prompt text, nothing else"
+                ),
+            },
+            {"role": "user", "content": raw_prompt},
+        ],
+    }
+
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            response = client.post(
+                f"{base_url.rstrip('/')}/chat/completions", headers=headers, json=payload
+            )
+            response.raise_for_status()
+            data = response.json()
+            content: str = data["choices"][0]["message"]["content"]
+            refined = content.strip()
+            return refined if refined else raw_prompt
+    except Exception:
+        return raw_prompt
