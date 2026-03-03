@@ -53,10 +53,7 @@ pip install -e .
 # Option A: Environment variable
 export OPENROUTER_API_KEY="your-key"
 
-# Option B: .env file in project root
-echo 'OPENROUTER_API_KEY=your-key' > .env
-
-# Option C: User config (persists across projects)
+# Option B: User config (persists across projects)
 mkdir -p ~/.repologogen
 echo 'openrouter_api_key: your-key' > ~/.repologogen/config.yaml
 ```

@@ -131,6 +131,7 @@ CONFIG_SCHEMA: dict[str, Any] = {
         "compress_quality": {"type": "integer", "minimum": 0, "maximum": 100},
         "trim": {"type": "boolean"},
         "trim_margin": {"type": "integer", "minimum": 0, "maximum": 25},
+        "openrouter_api_key": {"type": "string"},
     },
     "required": [
         "model",
@@ -290,27 +291,11 @@ def load_merged_config(
 
 
 def get_api_key(project_path: Path | None = None) -> str | None:
-    """Get OpenRouter API key from environment, .env files, or config."""
+    """Get OpenRouter API key from environment or config."""
     # Environment variable
     api_key = os.getenv("OPENROUTER_API_KEY")
     if api_key:
         return api_key
-
-    # .env files
-    try:
-        from dotenv import load_dotenv
-
-        for env_path in [
-            project_path / ".env" if project_path else None,
-            Path.cwd() / ".env",
-        ]:
-            if env_path and env_path.exists():
-                load_dotenv(env_path, override=False)
-                api_key = os.getenv("OPENROUTER_API_KEY")
-                if api_key:
-                    return api_key
-    except ImportError:
-        pass
 
     # User config
     user_config_path = Path.home() / ".repologogen" / "config.yaml"

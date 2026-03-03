@@ -119,8 +119,7 @@ def run_generation(
     except ImageGeneratorError as e:
         console.print(f"[bold red]Error:[/bold red] {e}")
         console.print(
-            "[dim]Set OPENROUTER_API_KEY in environment, .env file, or "
-            "~/.repologogen/config.yaml[/dim]"
+            "[dim]Set OPENROUTER_API_KEY in environment or ~/.repologogen/config.yaml[/dim]"
         )
         return 1
 

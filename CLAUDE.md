@@ -26,7 +26,7 @@ CLI tool that generates professional logos with transparent backgrounds via Open
 
 **Config priority**: project `.config.yaml` > user `~/.repologogen/config.yaml` (at least one required)
 
-**API key sources** (checked in order): `OPENROUTER_API_KEY` env var → `.env` file → `~/.repologogen/config.yaml`
+**API key sources** (checked in order): `OPENROUTER_API_KEY` env var → `~/.repologogen/config.yaml`
 
 ## Code Style
 

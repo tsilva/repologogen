@@ -34,8 +34,8 @@ Pure {KEY_COLOR} background only. Do not use similar tones in the design.
         self.api_key = api_key or get_api_key(project_path)
         if not self.api_key:
             raise ImageGeneratorError(
-                "API key required. Set OPENROUTER_API_KEY environment variable, "
-                "create a .env file, or configure ~/.repologogen/config.yaml"
+                "API key required. Set OPENROUTER_API_KEY environment variable or "
+                "configure ~/.repologogen/config.yaml"
             )
 
         self.base_url = base_url.rstrip("/")
