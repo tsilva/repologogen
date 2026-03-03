@@ -35,7 +35,7 @@ Pure {KEY_COLOR} background only. Do not use similar tones in the design.
         if not self.api_key:
             raise ImageGeneratorError(
                 "API key required. Set OPENROUTER_API_KEY environment variable, "
-                "create a .env file, or configure ~/.repologogen/config.json"
+                "create a .env file, or configure ~/.repologogen/config.yaml"
             )
 
         self.base_url = base_url.rstrip("/")
@@ -55,29 +55,46 @@ Pure {KEY_COLOR} background only. Do not use similar tones in the design.
             "Content-Type": "application/json",
         }
 
-        payload = {"model": model, "prompt": prompt, "size": size, "aspect_ratio": aspect_ratio}
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "modalities": ["image", "text"],
+            "image_config": {
+                "aspect_ratio": aspect_ratio,
+                "image_size": size,
+            },
+        }
 
         try:
             with httpx.Client(timeout=self.timeout) as client:
                 response = client.post(
-                    f"{self.base_url}/images/generations", headers=headers, json=payload
+                    f"{self.base_url}/chat/completions", headers=headers, json=payload
                 )
                 response.raise_for_status()
                 data = response.json()
 
-                if "data" not in data or not data["data"]:
-                    raise ImageGeneratorError(f"No image data in response: {data.keys()}")
+                if "choices" not in data or not data["choices"]:
+                    raise ImageGeneratorError(f"No choices in response: {data.keys()}")
 
-                image_data = data["data"][0]
+                message = data["choices"][0].get("message", {})
+                images = message.get("images", [])
 
-                if "url" in image_data:
-                    img_response = client.get(image_data["url"])
+                if not images:
+                    raise ImageGeneratorError(f"No images in response: {message.keys()}")
+
+                image_data = images[0]
+                image_url = image_data.get("image_url", {}).get("url", "")
+
+                if image_url.startswith("data:image"):
+                    # Extract base64 data from data URL
+                    base64_data = image_url.split(",")[1]
+                    output_path.write_bytes(base64.b64decode(base64_data))
+                elif image_url.startswith("http"):
+                    img_response = client.get(image_url)
                     img_response.raise_for_status()
                     output_path.write_bytes(img_response.content)
-                elif "b64_json" in image_data:
-                    output_path.write_bytes(base64.b64decode(image_data["b64_json"]))
                 else:
-                    raise ImageGeneratorError(f"Unexpected response format: {image_data.keys()}")
+                    raise ImageGeneratorError(f"Unexpected image URL format: {image_url[:50]}...")
 
                 return {"success": True, "model": model, "output_path": str(output_path)}
 
@@ -100,6 +117,7 @@ def build_prompt(
     include_repo_name: bool,
     additional_instructions: str = "",
     prompt_template: Optional[str] = None,
+    template_vars: Optional[dict] = None,
 ) -> str:
     """Build the image generation prompt."""
     template = prompt_template or ImageGenerator.DEFAULT_TEMPLATE
@@ -110,14 +128,21 @@ def build_prompt(
         else "No text, no letters, no words."
     )
 
-    prompt = template.format(
-        PROJECT_NAME=project_name,
-        STYLE=style,
-        ICON_COLORS=", ".join(icon_colors),
-        KEY_COLOR=key_color,
-        VISUAL_METAPHOR=visual_metaphor,
-        TEXT_INSTRUCTIONS=text_instructions,
-    )
+    # Built-in template variables
+    built_in_vars = {
+        "PROJECT_NAME": project_name,
+        "STYLE": style,
+        "ICON_COLORS": ", ".join(icon_colors),
+        "KEY_COLOR": key_color,
+        "VISUAL_METAPHOR": visual_metaphor,
+        "TEXT_INSTRUCTIONS": text_instructions,
+    }
+
+    # Merge with CLI-provided template vars (CLI vars override built-in)
+    if template_vars:
+        built_in_vars.update(template_vars)
+
+    prompt = template.format(**built_in_vars)
 
     if additional_instructions:
         prompt = f"{prompt}\n{additional_instructions}"

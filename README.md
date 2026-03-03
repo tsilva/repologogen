@@ -8,7 +8,7 @@ CLI tool for generating professional logos with transparent backgrounds using AI
 - **Automatic Transparency**: Applies chromakey technique for clean transparent backgrounds
 - **Smart Trimming**: Maximizes canvas utilization by trimming transparent padding
 - **Project Detection**: Auto-detects project type from repository structure
-- **Configurable**: JSON-based configuration with user and project-level overrides
+- **Configurable**: YAML-based configuration with user and project-level overrides
 - **PNG Compression**: Optimizes file size while maintaining quality
 
 ## Installation
@@ -40,10 +40,12 @@ pip install -e .
    # Edit .env and add your key
    ```
 
-   **Option C - Tool install config (for `uv tool install`):**
+   **Option C - User config (for `uv tool install`):**
    ```bash
    mkdir -p ~/.repologogen
-   echo '{"openrouter_api_key": "your-api-key-here"}' > ~/.repologogen/config.json
+   cat > ~/.repologogen/config.yaml << 'EOF'
+   openrouter_api_key: your-api-key-here
+   EOF
    ```
 
 2. Generate a logo:
@@ -83,22 +85,21 @@ repologogen -o assets/logo.png
 ### Configuration
 
 Configuration files are loaded in this priority order:
-1. Project config: `.repologogen.json` in project root
-2. User config: `~/.repologogen/config.json`
+1. Project config: `.config.yaml` in project root
+2. User config: `~/.repologogen/config.yaml`
 3. Built-in defaults
 
-**Example `.repologogen.json`:**
-```json
-{
-  "logo": {
-    "style": "minimalist",
-    "icon_colors": ["#58a6ff", "#d29922"],
-    "key_color": "#00FF00",
-    "output_path": "docs/logo.png",
-    "trim": true,
-    "compress": true
-  }
-}
+**Example `.config.yaml`:**
+```yaml
+# Copy from .config.yaml.example and customize
+style: minimalist
+icon_colors:
+  - "#58a6ff"
+  - "#d29922"
+key_color: "#00FF00"
+output_path: docs/logo.png
+trim: true
+compress: true
 ```
 
 ### Configuration Options
@@ -109,7 +110,7 @@ Configuration files are loaded in this priority order:
 | `style` | `minimalist` | Logo style descriptor |
 | `visual_metaphor` | `null` | Override visual metaphor (or `none`) |
 | `include_repo_name` | `false` | Include project name as text |
-| `icon_colors` | `["#58a6ff", ...]` | Color palette |
+| `icon_colors` | `["#58a6ff", ...]` | Color palette (array or string) |
 | `key_color` | `#00FF00` | Chromakey background color |
 | `tolerance` | `70` | Edge detection tolerance |
 | `output_path` | `logo.png` | Output file path |
@@ -117,6 +118,8 @@ Configuration files are loaded in this priority order:
 | `trim_margin` | `5` | Trim margin percentage |
 | `compress` | `true` | Enable PNG compression |
 | `compress_quality` | `80` | Compression quality (1-100) |
+| `additional_instructions` | `""` | Extra prompt text |
+| `prompt_template` | `null` | Custom prompt template |
 
 ## How It Works
 
@@ -153,7 +156,7 @@ mypy src/repologogen/
 ## Requirements
 
 - Python 3.10+
-- OpenRouter API key (configured via environment variable, .env file, or ~/.repologogen/config.json)
+- OpenRouter API key (configured via environment variable, .env file, or ~/.repologogen/config.yaml)
 - Supported models: Any OpenAI-compatible image generation API
 
 ## License

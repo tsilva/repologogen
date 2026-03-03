@@ -1,0 +1,62 @@
+# RepoLogogen Configuration Example
+# Place this file in your project root as .config.yaml
+# User-wide configuration: ~/.repologogen/config.yaml
+
+# AI Model for image generation
+model: google/gemini-3-pro-image-preview
+
+# Image size (1K, 2K, etc.)
+size: 1K
+
+# Logo style description
+style: >-
+  SNES 16-bit pixel art (Chrono Trigger style) for {PROJECT_NAME}.
+  Charming character mascot representing the project concept.
+  VISIBLE CHUNKY PIXELS with dithering for shading. Selective outlines.
+  Full SNES color palette, bright and saturated. Floating icon-only symbols
+  (no text on icons). Banner with project name as pixel art text.
+  Pure {KEY_COLOR} background only - do not use similar tones in the design.
+
+# Custom visual metaphor (or null for auto-detect)
+visual_metaphor: null
+
+# Include project name as text in logo
+include_repo_name: true
+
+# Color palette description for the icon
+icon_colors: >-
+  SVGA high-color palette with maximum saturation and vibrancy.
+  Use diverse, BRIGHT and PUNCHY colors - vivid reds, bright oranges,
+  golden yellows, electric cyans, deep blues, bold purples.
+  High contrast, eye-catching colors like the most colorful LucasArts games.
+  Avoid green tones.
+
+# Background chromakey color (will be made transparent)
+key_color: "#00FF00"
+
+# Edge detection tolerance for transparency (0-255)
+tolerance: 70
+
+# Output file path (relative to project root)
+output_path: logo.png
+
+# Enable PNG compression
+compress: true
+
+# PNG compression quality (1-100, higher = better quality, larger file)
+compress_quality: 80
+
+# Trim transparent padding around the logo
+trim: true
+
+# Margin percentage to leave around the trimmed logo
+trim_margin: 5
+
+# Additional instructions to append to the AI prompt
+additional_instructions: >-
+  For projects with 'claude' anywhere in the name (case-insensitive),
+  the Claude mascot (Anthropic's friendly AI assistant character - a warm,
+  approachable figure) MUST be the main protagonist in the logo design.
+
+# Custom prompt template (null to use default)
+prompt_template: null

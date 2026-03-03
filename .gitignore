@@ -1,3 +1,7 @@
+# RepoLogogen project config (user-specific)
+.config.yaml
+!.config.yaml.example
+
 # >>> MANAGED BY GITGUARD - DO NOT EDIT THIS SECTION <<<
 .claude/*.local.json
 .claude/*.local.json.bak
