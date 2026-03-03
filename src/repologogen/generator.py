@@ -142,6 +142,15 @@ def build_prompt(
     if template_vars:
         built_in_vars.update(template_vars)
 
+    # Pre-resolve placeholders in config values (e.g. {PROJECT_NAME} in style)
+    # so that template.format() produces a fully resolved prompt
+    for key, value in built_in_vars.items():
+        if isinstance(value, str) and "{" in value:
+            try:
+                built_in_vars[key] = value.format(**built_in_vars)
+            except (KeyError, ValueError):
+                pass  # Leave unresolvable placeholders as-is
+
     prompt = template.format(**built_in_vars)
 
     if additional_instructions:

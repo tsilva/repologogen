@@ -14,6 +14,8 @@
 
 ## Overview
 
+[![CI](https://github.com/tsilva/repologogen/actions/workflows/release.yml/badge.svg)](https://github.com/tsilva/repologogen/actions/workflows/release.yml)
+
 **The pain:** Every project needs a logo, but commissioning one takes time and money. Stock icons look generic. AI tools require manual transparency cleanup, awkward cropping, and repetitive prompt engineering.
 
 **The solution:** repologogen auto-detects your project type, builds a tailored prompt, generates a logo via OpenRouter's 300+ AI models, and produces a clean transparent PNG — all in one command.
