@@ -1,0 +1,19 @@
+{
+  "logo": {
+    "model": "google/gemini-3-pro-image-preview",
+    "size": "1K",
+    "prompt_template": null,
+    "style": "minimalist",
+    "visual_metaphor": null,
+    "include_repo_name": false,
+    "icon_colors": ["#58a6ff", "#d29922", "#a371f7", "#7aa2f7", "#f97583"],
+    "additional_instructions": "",
+    "key_color": "#00FF00",
+    "tolerance": 70,
+    "output_path": "logo.png",
+    "compress": true,
+    "compress_quality": 80,
+    "trim": true,
+    "trim_margin": 5
+  }
+}
