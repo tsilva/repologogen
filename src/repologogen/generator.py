@@ -18,7 +18,7 @@ class ImageGeneratorError(Exception):
 class ImageGenerator:
     """Client for generating images via OpenAI-compatible APIs."""
 
-    DEFAULT_TEMPLATE = """A {STYLE} logo for {PROJECT_NAME}: {VISUAL_METAPHOR}.
+    DEFAULT_TEMPLATE = """A {STYLE} logo for {PROJECT_NAME}.{PROJECT_DESCRIPTION} {VISUAL_METAPHOR}.
 Clean vector style. Icon colors from: {ICON_COLORS}.
 Pure {KEY_COLOR} background only. Do not use similar tones in the design.
 {TEXT_INSTRUCTIONS} Single centered icon, geometric shapes. The icon must fill the entire canvas edge-to-edge with minimal padding. No empty space around the design. Scalable to small sizes."""
@@ -111,13 +111,14 @@ Pure {KEY_COLOR} background only. Do not use similar tones in the design.
 def build_prompt(
     project_name: str,
     style: str,
-    icon_colors: list[str],
+    icon_colors: list[str] | str,
     key_color: str,
     visual_metaphor: str,
     include_repo_name: bool,
     additional_instructions: str = "",
     prompt_template: Optional[str] = None,
     template_vars: Optional[dict] = None,
+    project_description: str = "",
 ) -> str:
     """Build the image generation prompt."""
     template = prompt_template or ImageGenerator.DEFAULT_TEMPLATE
@@ -128,14 +129,19 @@ def build_prompt(
         else "No text, no letters, no words."
     )
 
+    # Format description: " A tool that does X." or empty
+    desc_fragment = f" {project_description.rstrip('.')}." if project_description else ""
+
     # Built-in template variables
+    colors_str = icon_colors if isinstance(icon_colors, str) else ", ".join(icon_colors)
     built_in_vars = {
         "PROJECT_NAME": project_name,
         "STYLE": style,
-        "ICON_COLORS": ", ".join(icon_colors),
+        "ICON_COLORS": colors_str,
         "KEY_COLOR": key_color,
         "VISUAL_METAPHOR": visual_metaphor,
         "TEXT_INSTRUCTIONS": text_instructions,
+        "PROJECT_DESCRIPTION": desc_fragment,
     }
 
     # Merge with CLI-provided template vars (CLI vars override built-in)
@@ -157,3 +163,54 @@ def build_prompt(
         prompt = f"{prompt}\n{additional_instructions}"
 
     return prompt
+
+
+def digest_readme(
+    readme_content: str,
+    api_key: str,
+    base_url: str = "https://openrouter.ai/api/v1",
+) -> str:
+    """Send README content to an LLM to produce a concise project description.
+
+    Args:
+        readme_content: Raw README file content
+        api_key: OpenRouter API key
+        base_url: API base URL
+
+    Returns:
+        A concise project description, or empty string on any error
+    """
+    if not readme_content.strip():
+        return ""
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+
+    payload = {
+        "model": "google/gemini-3-flash-preview",
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "You are a project analyst. Given a README file, produce a single "
+                    "concise sentence (under 100 words) describing what this project does "
+                    "and what it's for. Focus on the core purpose. No markdown formatting."
+                ),
+            },
+            {"role": "user", "content": readme_content},
+        ],
+    }
+
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            response = client.post(
+                f"{base_url.rstrip('/')}/chat/completions", headers=headers, json=payload
+            )
+            response.raise_for_status()
+            data = response.json()
+            content: str = data["choices"][0]["message"]["content"]
+            return content.strip()
+    except Exception:
+        return ""

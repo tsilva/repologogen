@@ -10,6 +10,7 @@ from repologogen.generator import (
     ImageGenerator,
     ImageGeneratorError,
     build_prompt,
+    digest_readme,
 )
 
 
@@ -154,3 +155,96 @@ class TestPromptVariables:
         assert "minimalist" in prompt
         assert "#FF0000" in prompt
         assert "#0000FF" in prompt
+
+
+class TestBuildPromptWithDescription:
+    """Test build_prompt with project_description parameter."""
+
+    def test_description_appears_in_prompt(self):
+        """Test that project description is included in prompt."""
+        prompt = build_prompt(
+            project_name="MyProject",
+            style="minimalist",
+            icon_colors=["#FF0000"],
+            key_color="#00FF00",
+            visual_metaphor="geometric shapes",
+            include_repo_name=False,
+            project_description="A CLI tool for generating logos",
+        )
+        assert "A CLI tool for generating logos" in prompt
+
+    def test_works_without_description(self):
+        """Test backward compatibility when no description is provided."""
+        prompt = build_prompt(
+            project_name="MyProject",
+            style="minimalist",
+            icon_colors=["#FF0000"],
+            key_color="#00FF00",
+            visual_metaphor="geometric shapes",
+            include_repo_name=False,
+        )
+        assert "MyProject" in prompt
+        # No double spaces or orphan periods from empty description
+        assert ".." not in prompt
+
+    def test_var_override_takes_precedence(self):
+        """Test that --var PROJECT_DESCRIPTION overrides extracted value."""
+        prompt = build_prompt(
+            project_name="MyProject",
+            style="minimalist",
+            icon_colors=["#FF0000"],
+            key_color="#00FF00",
+            visual_metaphor="geometric shapes",
+            include_repo_name=False,
+            project_description="From README",
+            template_vars={"PROJECT_DESCRIPTION": " Custom override."},
+        )
+        assert "Custom override" in prompt
+        assert "From README" not in prompt
+
+
+class TestDigestReadme:
+    """Test digest_readme function."""
+
+    def test_returns_description_on_success(self):
+        """Test that a description is extracted from API response."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.raise_for_status = Mock()
+        mock_response.json.return_value = {
+            "choices": [{"message": {"content": "A tool for generating logos."}}]
+        }
+
+        with patch("repologogen.generator.httpx.Client") as mock_client_cls:
+            mock_client = Mock()
+            mock_client.__enter__ = Mock(return_value=mock_client)
+            mock_client.__exit__ = Mock(return_value=False)
+            mock_client.post.return_value = mock_response
+            mock_client_cls.return_value = mock_client
+
+            result = digest_readme("# My Project\nDoes stuff", "test-key")
+            assert result == "A tool for generating logos."
+
+            # Verify the API was called with correct model
+            call_args = mock_client.post.call_args
+            payload = call_args[1]["json"]
+            assert payload["model"] == "google/gemini-3-flash-preview"
+
+    def test_returns_empty_on_api_error(self):
+        """Test graceful fallback on API error."""
+        with patch("repologogen.generator.httpx.Client") as mock_client_cls:
+            mock_client = Mock()
+            mock_client.__enter__ = Mock(return_value=mock_client)
+            mock_client.__exit__ = Mock(return_value=False)
+            mock_client.post.side_effect = Exception("API error")
+            mock_client_cls.return_value = mock_client
+
+            result = digest_readme("# My Project", "test-key")
+            assert result == ""
+
+    def test_returns_empty_for_blank_readme(self):
+        """Test that blank README content returns empty string."""
+        result = digest_readme("", "test-key")
+        assert result == ""
+        result = digest_readme("   ", "test-key")
+        assert result == ""

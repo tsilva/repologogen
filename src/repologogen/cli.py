@@ -10,8 +10,8 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from repologogen.config import ConfigValidationError, expand_path, load_merged_config
-from repologogen.detector import detect_project, get_visual_metaphor
-from repologogen.generator import ImageGenerator, ImageGeneratorError, build_prompt
+from repologogen.detector import detect_project, find_readme, get_visual_metaphor
+from repologogen.generator import ImageGenerator, ImageGeneratorError, build_prompt, digest_readme
 from repologogen.processor import (
     chromakey_to_transparent,
     compress_png,
@@ -71,6 +71,26 @@ def run_generation(
             f"[dim]Detected project type: {project_type} ({project_info['confidence']})[/dim]"
         )
 
+    # Read and digest README for project description
+    project_description = ""
+    readme_path = find_readme(project_path)
+    if readme_path and not (template_vars and "PROJECT_DESCRIPTION" in template_vars):
+        with console.status("[bold green]Reading project description..."):
+            try:
+                readme_content = readme_path.read_text(encoding="utf-8")
+                api_key = os.environ.get("OPENROUTER_API_KEY", "")
+                if not api_key:
+                    from repologogen.config import get_api_key
+
+                    api_key = get_api_key(project_path) or ""
+                if api_key:
+                    project_description = digest_readme(readme_content, api_key)
+            except Exception:
+                pass  # Fail gracefully — description is optional
+
+        if verbose and project_description:
+            console.print(f"[dim]Project description: {project_description}[/dim]")
+
     if config.visual_metaphor == "none":
         visual_metaphor = "Abstract geometric shape"
     elif config.visual_metaphor:
@@ -98,10 +118,12 @@ def run_generation(
         additional_instructions=config.additional_instructions,
         prompt_template=config.prompt_template,
         template_vars=template_vars,
+        project_description=project_description,
     )
 
     if verbose:
-        console.print(f"[dim]Prompt preview: {prompt[:100]}...[/dim]")
+        console.print("\n[dim]Prompt:[/dim]")
+        console.print(f"[dim]{prompt}[/dim]")
 
     if dry_run:
         console.print("\n[bold cyan]Dry Run Summary:[/bold cyan]")
@@ -110,6 +132,8 @@ def run_generation(
         console.print(f"  Style: [green]{config.style}[/green]")
         console.print(f"  Output: [green]{resolved_output}[/green]")
         console.print(f"  Model: [green]{config.model}[/green]")
+        if project_description:
+            console.print(f"  Description: [green]{project_description}[/green]")
         console.print("\n[dim]Prompt:[/dim]")
         console.print(prompt)
         return 0

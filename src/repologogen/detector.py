@@ -35,6 +35,23 @@ VISUAL_METAPHORS: Dict[str, str] = {
 }
 
 
+def find_readme(path: Path) -> Path | None:
+    """Find README.md in the project directory (case-insensitive).
+
+    Args:
+        path: Directory to search
+
+    Returns:
+        Path to README file, or None if not found
+    """
+    if not path.is_dir():
+        return None
+    for f in path.iterdir():
+        if f.is_file() and f.name.lower() == "readme.md":
+            return f
+    return None
+
+
 def glob_match(pattern: str, files: List[str]) -> List[str]:
     """Simple glob matching for *.ext patterns."""
     if pattern.startswith("*."):
