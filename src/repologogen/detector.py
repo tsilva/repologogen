@@ -1,10 +1,9 @@
 """Project type detection utilities."""
 
 from pathlib import Path
-from typing import Dict, List, Tuple
 
 # Detection rules: (file patterns, project type, confidence)
-DETECTION_RULES: List[Tuple[List[str], str, str]] = [
+DETECTION_RULES: list[tuple[list[str], str, str]] = [
     (["package.json"], "nodejs", "high"),
     (["pyproject.toml"], "python", "high"),
     (["setup.py"], "python", "high"),
@@ -23,7 +22,7 @@ DETECTION_RULES: List[Tuple[List[str], str, str]] = [
 ]
 
 # Visual metaphors by project type
-VISUAL_METAPHORS: Dict[str, str] = {
+VISUAL_METAPHORS: dict[str, str] = {
     "cli": "Origami transformation, geometric terminal",
     "library": "Interconnected building blocks",
     "web": "Modern interface window",
@@ -52,7 +51,7 @@ def find_readme(path: Path) -> Path | None:
     return None
 
 
-def glob_match(pattern: str, files: List[str]) -> List[str]:
+def glob_match(pattern: str, files: list[str]) -> list[str]:
     """Simple glob matching for *.ext patterns."""
     if pattern.startswith("*."):
         ext = pattern[1:]  # includes the dot
@@ -60,7 +59,7 @@ def glob_match(pattern: str, files: List[str]) -> List[str]:
     return [f for f in files if f == pattern]
 
 
-def detect_project(path: Path) -> Dict:
+def detect_project(path: Path) -> dict[str, object]:
     """Detect project type from files in the given directory.
 
     Args:

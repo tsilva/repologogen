@@ -7,9 +7,12 @@ from PIL import Image
 
 from repologogen.processor import (
     chromakey_to_transparent,
-    trim_transparent,
+    compose_social_card,
     compress_png,
+    export_favicon_set,
     get_image_info,
+    resize_png,
+    trim_transparent,
 )
 
 
@@ -116,7 +119,6 @@ class TestCompressPng:
         img = Image.new("RGBA", (100, 100), (0, 255, 0, 255))
         path = tmp_path / "image.png"
         img.save(path, "PNG")
-        original_size = path.stat().st_size
 
         result = compress_png(path, path, quality=90)
 
@@ -152,3 +154,53 @@ class TestGetImageInfo:
 
         assert info["has_transparency"] is False
         assert info["transparency_percent"] == 0.0
+
+
+class TestResizePng:
+    """Test PNG resizing."""
+
+    def test_resizes_png(self, tmp_path):
+        img = Image.new("RGBA", (100, 100), (255, 0, 0, 255))
+        input_path = tmp_path / "input.png"
+        output_path = tmp_path / "output.png"
+        img.save(input_path, "PNG")
+
+        result = resize_png(input_path, output_path, (32, 32))
+
+        assert result["size"] == (32, 32)
+        assert Image.open(output_path).size == (32, 32)
+
+
+class TestExportFaviconSet:
+    """Test favicon export helpers."""
+
+    def test_exports_pngs_and_ico(self, tmp_path):
+        img = Image.new("RGBA", (128, 128), (255, 0, 0, 255))
+        input_path = tmp_path / "icon.png"
+        img.save(input_path, "PNG")
+
+        result = export_favicon_set(input_path, tmp_path / "favicon")
+
+        assert len(result["pngs"]) == 3
+        assert Path(result["ico"]).exists()
+
+
+class TestComposeSocialCard:
+    """Test deterministic social card composition."""
+
+    def test_creates_social_card(self, tmp_path):
+        img = Image.new("RGBA", (512, 512), (0, 128, 255, 255))
+        icon_path = tmp_path / "icon.png"
+        output_path = tmp_path / "social-card.png"
+        img.save(icon_path, "PNG")
+
+        result = compose_social_card(
+            icon_path,
+            output_path,
+            project_name="RepoLogoGen",
+            title="RepoLogoGen brand assets",
+            description="Generate a brand kit for any repository.",
+        )
+
+        assert result["size"] == (1200, 630)
+        assert Image.open(output_path).size == (1200, 630)

@@ -1,8 +1,10 @@
-"""Image generation module using OpenAI-compatible APIs."""
+"""Image generation and metadata helpers using OpenAI-compatible APIs."""
 
 import base64
+import json
+from contextlib import suppress
 from pathlib import Path
-from typing import Optional
+from typing import Any
 
 import httpx
 
@@ -18,17 +20,21 @@ class ImageGeneratorError(Exception):
 class ImageGenerator:
     """Client for generating images via OpenAI-compatible APIs."""
 
-    DEFAULT_TEMPLATE = """A {STYLE} logo for {PROJECT_NAME}.{PROJECT_DESCRIPTION} {VISUAL_METAPHOR}.
-Clean vector style. Icon colors from: {ICON_COLORS}.
-Pure {KEY_COLOR} background only. Do not use similar tones in the design.
-{TEXT_INSTRUCTIONS} Single centered icon, geometric shapes. The icon must fill the entire canvas edge-to-edge with minimal padding. No empty space around the design. Scalable to small sizes."""
+    DEFAULT_TEMPLATE = (
+        "A {STYLE} logo for {PROJECT_NAME}.{PROJECT_DESCRIPTION} {VISUAL_METAPHOR}.\n"
+        "Clean vector style. Icon colors from: {ICON_COLORS}.\n"
+        "Pure {KEY_COLOR} background only. Do not use similar tones in the design.\n"
+        "{TEXT_INSTRUCTIONS} Single centered icon, geometric shapes. "
+        "The icon must fill the entire canvas edge-to-edge with minimal padding. "
+        "No empty space around the design. Scalable to small sizes."
+    )
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         base_url: str = "https://openrouter.ai/api/v1",
         timeout: float = 120.0,
-        project_path: Optional[Path] = None,
+        project_path: Path | None = None,
     ):
         """Initialize the image generator."""
         self.api_key = api_key or get_api_key(project_path)
@@ -48,7 +54,7 @@ Pure {KEY_COLOR} background only. Do not use similar tones in the design.
         output_path: Path,
         size: str = "1K",
         aspect_ratio: str = "1:1",
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Generate an image and save it to the output path."""
         headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -108,6 +114,67 @@ Pure {KEY_COLOR} background only. Do not use similar tones in the design.
             raise ImageGeneratorError(f"Unexpected error: {e}") from e
 
 
+def _strip_json_fence(content: str) -> str:
+    stripped = content.strip()
+    if stripped.startswith("```"):
+        lines = stripped.splitlines()
+        if len(lines) >= 3:
+            return "\n".join(lines[1:-1]).strip()
+    return stripped
+
+
+def _fallback_metadata(
+    project_name: str,
+    project_type: str,
+    project_description: str = "",
+) -> dict[str, Any]:
+    description = (
+        project_description.strip()
+        or f"{project_name} is a {project_type} project.".replace(" unknown ", " ")
+    )
+    title = project_name
+    return {
+        "title": title,
+        "short_description": description,
+        "social_title": title,
+        "social_description": description,
+        "keywords": [
+            value for value in [project_name.lower(), project_type] if value and value != "unknown"
+        ],
+    }
+
+
+def _normalize_metadata(
+    payload: dict[str, Any],
+    project_name: str,
+    project_type: str,
+    project_description: str = "",
+) -> dict[str, Any]:
+    fallback = _fallback_metadata(project_name, project_type, project_description)
+    keywords = payload.get("keywords", fallback["keywords"])
+
+    if isinstance(keywords, str):
+        keywords = [item.strip() for item in keywords.split(",") if item.strip()]
+    elif isinstance(keywords, list):
+        keywords = [str(item).strip() for item in keywords if str(item).strip()]
+    else:
+        keywords = fallback["keywords"]
+
+    return {
+        "title": str(payload.get("title") or fallback["title"]),
+        "short_description": str(payload.get("short_description") or fallback["short_description"]),
+        "social_title": str(
+            payload.get("social_title") or payload.get("title") or fallback["title"]
+        ),
+        "social_description": str(
+            payload.get("social_description")
+            or payload.get("short_description")
+            or fallback["short_description"]
+        ),
+        "keywords": keywords or fallback["keywords"],
+    }
+
+
 def build_prompt(
     project_name: str,
     style: str,
@@ -116,8 +183,8 @@ def build_prompt(
     visual_metaphor: str,
     include_repo_name: bool,
     additional_instructions: str = "",
-    prompt_template: Optional[str] = None,
-    template_vars: Optional[dict] = None,
+    prompt_template: str | None = None,
+    template_vars: dict[str, str] | None = None,
     project_description: str = "",
 ) -> str:
     """Build the image generation prompt."""
@@ -152,10 +219,8 @@ def build_prompt(
     # so that template.format() produces a fully resolved prompt
     for key, value in built_in_vars.items():
         if isinstance(value, str) and "{" in value:
-            try:
+            with suppress(KeyError, ValueError):
                 built_in_vars[key] = value.format(**built_in_vars)
-            except (KeyError, ValueError):
-                pass  # Leave unresolvable placeholders as-is
 
     prompt = template.format(**built_in_vars)
 
@@ -216,6 +281,73 @@ def digest_readme(
             return content.strip()
     except Exception:
         return ""
+
+
+def extract_repo_metadata(
+    readme_content: str,
+    api_key: str,
+    project_name: str,
+    project_type: str,
+    *,
+    project_description: str = "",
+    text_model: str = "google/gemini-3-flash-preview",
+    base_url: str = "https://openrouter.ai/api/v1",
+) -> dict[str, Any]:
+    """Extract minimal reusable metadata fields for bundle manifests."""
+    if not readme_content.strip():
+        return _fallback_metadata(project_name, project_type, project_description)
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+
+    payload = {
+        "model": text_model,
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "You are an SEO metadata editor for software repositories. "
+                    "Return valid JSON only "
+                    'with keys: "title", "short_description", "social_title", '
+                    '"social_description", and "keywords". '
+                    '"keywords" must be an array of short strings. '
+                    "Descriptions should be concise, factual, and suitable for a "
+                    "repo landing page."
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"Project name: {project_name}\n"
+                    f"Project type: {project_type}\n"
+                    f"Known summary: {project_description or 'none'}\n\n"
+                    f"README:\n{readme_content}"
+                ),
+            },
+        ],
+    }
+
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            response = client.post(
+                f"{base_url.rstrip('/')}/chat/completions", headers=headers, json=payload
+            )
+            response.raise_for_status()
+            data = response.json()
+            content: str = data["choices"][0]["message"]["content"]
+            parsed = json.loads(_strip_json_fence(content))
+            if not isinstance(parsed, dict):
+                raise ValueError("Metadata response must be a JSON object")
+            return _normalize_metadata(
+                parsed,
+                project_name,
+                project_type,
+                project_description,
+            )
+    except Exception:
+        return _fallback_metadata(project_name, project_type, project_description)
 
 
 def refine_prompt(

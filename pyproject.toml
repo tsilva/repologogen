@@ -1,14 +1,14 @@
 [project]
 name = "repologogen"
 version = "0.1.0"
-description = "CLI tool for generating professional logos with transparent backgrounds"
+description = "CLI tool for generating repository logos and core brand assets"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 authors = [
     { name = "tsilva" }
 ]
-keywords = ["logo", "generator", "cli", "ai", "image"]
+keywords = ["logo", "branding", "generator", "cli", "ai", "image"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
@@ -81,6 +81,10 @@ python_version = "3.10"
 strict = true
 warn_return_any = true
 warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+module = ["yaml", "jsonschema", "PIL", "PIL.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

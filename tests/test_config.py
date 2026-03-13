@@ -1,5 +1,6 @@
 """Tests for repologogen configuration module."""
 
+from pathlib import Path
 
 import pytest
 import yaml
@@ -83,8 +84,18 @@ class TestSchemaValidation:
         # Should not raise
         validate_config(valid_config)
 
-    def test_missing_required_field_fails(self):
-        """Test that missing required fields fails validation."""
+    def test_partial_override_config_passes(self):
+        """Test that partial override configs are allowed."""
+        invalid_config = {
+            "model": "test",
+            "size": "1K",
+            "style": "minimalist",
+            "output_path": "logo.png",
+        }
+        validate_config(invalid_config)
+
+    def test_missing_required_field_fails_for_complete_validation(self):
+        """Test that complete validation still requires bundled defaults."""
         invalid_config = {
             "model": "test",
             "size": "1K",
@@ -92,7 +103,7 @@ class TestSchemaValidation:
             "output_path": "logo.png",
         }
         with pytest.raises(ConfigValidationError) as exc_info:
-            validate_config(invalid_config)
+            validate_config(invalid_config, require_complete=True)
         assert "validation error" in str(exc_info.value).lower()
 
     def test_unknown_property_fails(self):
@@ -175,7 +186,10 @@ class TestLoadMergedConfig:
 
     def test_uses_bundled_defaults(self):
         """Test that bundled defaults are used as base."""
-        config = load_merged_config()
+        config = load_merged_config(
+            user_config_path=Path("/nonexistent-user-config.yaml"),
+            project_config_path=Path("/nonexistent-project-config.yaml"),
+        )
         assert config.style == "minimalist"
         assert config.key_color == "#00FF00"
 
@@ -187,7 +201,10 @@ class TestLoadMergedConfig:
         user_data["style"] = "user_custom"
         user_config.write_text(yaml.dump(user_data))
 
-        config = load_merged_config(user_config_path=user_config)
+        config = load_merged_config(
+            user_config_path=user_config,
+            project_config_path=tmp_path / "missing-project.yaml",
+        )
         assert config.style == "user_custom"
         assert config.key_color == "#00FF00"  # Bundled default preserved
 
@@ -219,7 +236,10 @@ class TestLoadMergedConfig:
         user_data["style"] = "custom"
         user_config.write_text(yaml.dump(user_data))
 
-        config = load_merged_config(user_config_path=user_config)
+        config = load_merged_config(
+            user_config_path=user_config,
+            project_config_path=tmp_path / "missing-project.yaml",
+        )
         sources = config.meta.get("sources", [])
         assert "bundled_defaults" in sources
         assert str(user_config) in sources
@@ -231,7 +251,10 @@ class TestLoadMergedConfig:
         user_config.write_text(yaml.dump({"invalid": "config"}))
 
         with pytest.raises(ConfigValidationError):
-            load_merged_config(user_config_path=user_config)
+            load_merged_config(
+                user_config_path=user_config,
+                project_config_path=tmp_path / "missing-project.yaml",
+            )
 
     def test_raises_on_invalid_project_config(self, tmp_path):
         """Test raises when project config is invalid."""
@@ -240,7 +263,45 @@ class TestLoadMergedConfig:
         project_config.write_text(yaml.dump({"invalid": "config"}))
 
         with pytest.raises(ConfigValidationError):
-            load_merged_config(project_config_path=project_config)
+            load_merged_config(
+                user_config_path=tmp_path / "missing-user.yaml",
+                project_config_path=project_config,
+            )
+
+    def test_resolves_project_config_from_target_repo(self, tmp_path):
+        """Test that target repo config is loaded from project_root."""
+        project_root = tmp_path / "project"
+        project_root.mkdir()
+        (project_root / ".config.yaml").write_text(yaml.dump({"style": "repo_style"}))
+
+        config = load_merged_config(
+            user_config_path=tmp_path / "missing-user.yaml",
+            project_root=project_root,
+        )
+        assert config.style == "repo_style"
+
+    def test_asset_overrides_are_loaded(self, tmp_path):
+        """Test that per-asset overrides are preserved in merged config."""
+        project_config = tmp_path / "project_config.yaml"
+        project_config.write_text(
+            yaml.dump(
+                {
+                    "assets": {
+                        "icon": {
+                            "style": "flat badge",
+                            "enabled": True,
+                        }
+                    }
+                }
+            )
+        )
+
+        config = load_merged_config(
+            user_config_path=tmp_path / "missing-user.yaml",
+            project_config_path=project_config,
+        )
+        assert config.assets["icon"]["style"] == "flat badge"
+        assert config.assets["icon"]["enabled"] is True
 
 
 class TestBundledDefaults:
@@ -380,7 +441,10 @@ class TestLoadMergedConfigWithUnresolvedVars:
         project_config.write_text(yaml.dump(data))
 
         with pytest.raises(ConfigValidationError) as exc_info:
-            load_merged_config(project_config_path=project_config)
+            load_merged_config(
+                user_config_path=tmp_path / "missing-user.yaml",
+                project_config_path=project_config,
+            )
 
         assert "unresolved environment variables" in str(exc_info.value)
 
@@ -392,6 +456,9 @@ class TestLoadMergedConfigWithUnresolvedVars:
         user_config.write_text(yaml.dump(data))
 
         with pytest.raises(ConfigValidationError) as exc_info:
-            load_merged_config(user_config_path=user_config)
+            load_merged_config(
+                user_config_path=user_config,
+                project_config_path=tmp_path / "missing-project.yaml",
+            )
 
         assert "unresolved environment variables" in str(exc_info.value)

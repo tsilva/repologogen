@@ -1,10 +1,5 @@
 """Tests for repologogen detector module."""
 
-import tempfile
-from pathlib import Path
-
-import pytest
-
 from repologogen.detector import (
     detect_project,
     find_readme,

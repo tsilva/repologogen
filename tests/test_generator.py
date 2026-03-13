@@ -1,7 +1,6 @@
 """Tests for repologogen generator module."""
 
 import json
-from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
@@ -11,6 +10,7 @@ from repologogen.generator import (
     ImageGeneratorError,
     build_prompt,
     digest_readme,
+    extract_repo_metadata,
     refine_prompt,
 )
 
@@ -138,7 +138,10 @@ class TestPromptVariables:
 
     def test_all_variables_substituted(self):
         """Test that all template variables are substituted."""
-        template = "Project: {PROJECT_NAME}, Style: {STYLE}, Colors: {ICON_COLORS}, Key: {KEY_COLOR}, Metaphor: {VISUAL_METAPHOR}, Text: {TEXT_INSTRUCTIONS}"
+        template = (
+            "Project: {PROJECT_NAME}, Style: {STYLE}, Colors: {ICON_COLORS}, "
+            "Key: {KEY_COLOR}, Metaphor: {VISUAL_METAPHOR}, Text: {TEXT_INSTRUCTIONS}"
+        )
 
         prompt = build_prompt(
             project_name="TestApp",
@@ -251,6 +254,72 @@ class TestDigestReadme:
         assert result == ""
 
 
+class TestExtractRepoMetadata:
+    """Test extract_repo_metadata function."""
+
+    def test_returns_structured_metadata_on_success(self):
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.raise_for_status = Mock()
+        mock_response.json.return_value = {
+            "choices": [
+                {
+                    "message": {
+                        "content": json.dumps(
+                            {
+                                "title": "RepoLogoGen",
+                                "short_description": "Generate repo brand assets.",
+                                "social_title": "RepoLogoGen",
+                                "social_description": "Generate repo brand assets.",
+                                "keywords": ["logos", "seo"],
+                            }
+                        )
+                    }
+                }
+            ]
+        }
+
+        with patch("repologogen.generator.httpx.Client") as mock_client_cls:
+            mock_client = Mock()
+            mock_client.__enter__ = Mock(return_value=mock_client)
+            mock_client.__exit__ = Mock(return_value=False)
+            mock_client.post.return_value = mock_response
+            mock_client_cls.return_value = mock_client
+
+            result = extract_repo_metadata(
+                "# RepoLogoGen",
+                "test-key",
+                "RepoLogoGen",
+                "python",
+            )
+
+            assert result["title"] == "RepoLogoGen"
+            assert result["keywords"] == ["logos", "seo"]
+
+    def test_falls_back_on_invalid_json(self):
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.raise_for_status = Mock()
+        mock_response.json.return_value = {"choices": [{"message": {"content": "not json"}}]}
+
+        with patch("repologogen.generator.httpx.Client") as mock_client_cls:
+            mock_client = Mock()
+            mock_client.__enter__ = Mock(return_value=mock_client)
+            mock_client.__exit__ = Mock(return_value=False)
+            mock_client.post.return_value = mock_response
+            mock_client_cls.return_value = mock_client
+
+            result = extract_repo_metadata(
+                "# RepoLogoGen",
+                "test-key",
+                "RepoLogoGen",
+                "python",
+            )
+
+            assert result["title"] == "RepoLogoGen"
+            assert "python" in result["keywords"]
+
+
 class TestRefinePrompt:
     """Test refine_prompt function."""
 
@@ -278,9 +347,7 @@ class TestRefinePrompt:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.raise_for_status = Mock()
-        mock_response.json.return_value = {
-            "choices": [{"message": {"content": "Refined."}}]
-        }
+        mock_response.json.return_value = {"choices": [{"message": {"content": "Refined."}}]}
 
         with patch("repologogen.generator.httpx.Client") as mock_client_cls:
             mock_client = Mock()

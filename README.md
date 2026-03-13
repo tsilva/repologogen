@@ -5,7 +5,7 @@
   [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-3776AB.svg?logo=python&logoColor=white)](https://www.python.org)
   [![OpenRouter](https://img.shields.io/badge/Powered_by-OpenRouter-6366F1.svg)](https://openrouter.ai)
 
-  **🎨 Generate professional logos with transparent backgrounds from the command line ✨**
+  **🎨 Generate repo logos and core brand assets from the command line ✨**
 
   [Installation](#-installation) · [Quick Start](#-quick-start) · [Configuration](#%EF%B8%8F-configuration)
 </div>
@@ -18,15 +18,16 @@
 
 **The pain:** Every project needs a logo, but commissioning one takes time and money. Stock icons look generic. AI tools require manual transparency cleanup, awkward cropping, and repetitive prompt engineering.
 
-**The solution:** repologogen auto-detects your project type, builds a tailored prompt, generates a logo via OpenRouter's 300+ AI models, and produces a clean transparent PNG — all in one command.
+**The solution:** repologogen auto-detects your project type, builds a tailored prompt, generates a canonical brand mark via OpenRouter, and can expand it into a core brand pack with icons, favicons, a social card, and manifest data.
 
-**The result:** A production-ready logo in under 30 seconds, with zero manual post-processing.
+**The result:** Production-ready repo branding in under 30 seconds, with zero manual post-processing.
 
 ## ⚡ Features
 
-- **One-Command Generation** — Point at any repo and get a polished logo
+- **One-Command Generation** — Point at any repo and get a polished logo or full core brand pack
 - **Automatic Transparency** — Chromakey-to-alpha conversion with graduated edge detection
 - **Smart Trimming** — Crops excess padding and resizes to fill the canvas
+- **Core Brand Bundle** — Generate logo, icon, favicon set, social card, and manifest JSON
 - **Project Detection** — Recognizes Python, Node.js, Rust, Go, Java, .NET, Ruby, PHP, and C++ projects
 - **3-Tier Config** — Project `.config.yaml` > User `~/.repologogen/config.yaml` > Built-in defaults
 - **Custom Prompts** — Full template system with variables for style, colors, metaphors, and more
@@ -63,10 +64,14 @@ echo 'openrouter_api_key: your-key' > ~/.repologogen/config.yaml
 **2. Generate:**
 
 ```bash
+# Logo only
 repologogen
+
+# Full core brand pack
+repologogen --bundle core-brand
 ```
 
-**3. Done.** Your `logo.png` is ready with a transparent background.
+**3. Done.** Your `logo.png` or `repologogen-assets/` bundle is ready.
 
 ## 🛠️ Usage
 
@@ -74,14 +79,20 @@ repologogen
 # Generate logo for current project
 repologogen
 
+# Generate the full core brand pack
+repologogen --bundle core-brand
+
 # Target a specific project
 repologogen /path/to/project
 
-# Custom style
+# Custom style across generated assets
 repologogen -s "pixel art"
 
 # Custom output path
 repologogen -o assets/logo.png
+
+# Custom asset directory for the core brand bundle
+repologogen --bundle core-brand --assets-dir branding
 
 # Override project name
 repologogen -n "My Project"
@@ -97,13 +108,17 @@ repologogen -v
 
 | Flag | Description |
 |------|-------------|
+| `--bundle` | Select `logo` or `core-brand` generation mode |
 | `-s`, `--style` | Override logo style |
-| `-o`, `--output` | Override output path |
+| `-o`, `--output` | Override output path for the `logo` bundle |
+| `--assets-dir` | Override output directory for bundle assets |
+| `--manifest` | Override manifest path for bundle assets |
 | `-n`, `--name` | Override project name |
 | `-m`, `--model` | Override AI model |
 | `-c`, `--config` | Path to custom config file |
 | `--no-trim` | Skip transparent padding trim |
 | `--no-compress` | Skip PNG compression |
+| `--no-refine` | Skip prompt refinement |
 | `--dry-run` | Show prompt without generating |
 | `--var KEY=VALUE` | Set template variable (repeatable) |
 | `-v`, `--verbose` | Enable verbose output |
@@ -121,6 +136,8 @@ Configuration loads in priority order — project overrides user, user overrides
 ```yaml
 model: google/gemini-3-pro-image-preview
 size: 1K
+bundle: core-brand
+assets_dir: branding
 style: "SNES 16-bit pixel art"
 icon_colors:
   - "#58a6ff"
@@ -134,6 +151,12 @@ trim: true
 trim_margin: 5
 compress: true
 compress_quality: 80
+
+assets:
+  icon:
+    style: "flat badge"
+  social_card:
+    enabled: true
 ```
 
 ### All Options
@@ -155,6 +178,57 @@ compress_quality: 80
 | `compress_quality` | `80` | Compression quality (1–100) |
 | `additional_instructions` | `""` | Extra text appended to the AI prompt |
 | `prompt_template` | `null` | Fully custom prompt template |
+| `bundle` | `logo` | Default bundle to generate (`logo` or `core-brand`) |
+| `assets_dir` | `repologogen-assets` | Output directory for bundle assets |
+| `manifest_path` | `repologogen-assets/manifest.json` | Manifest path for the bundle output |
+
+### Asset Override Config
+
+Top-level creative settings remain the defaults for every generated asset. Use `assets.*` blocks only when a specific asset needs an override.
+
+Supported override keys per asset:
+
+- `enabled`
+- `style`
+- `visual_metaphor`
+- `include_repo_name`
+- `icon_colors`
+- `additional_instructions`
+- `model`
+- `size`
+- `prompt_template`
+
+### Bundle Output
+
+`repologogen --bundle core-brand` writes:
+
+```text
+repologogen-assets/
+├── app-icons/
+│   ├── android-chrome-192.png
+│   ├── android-chrome-512.png
+│   └── apple-touch-icon.png
+├── favicon/
+│   ├── favicon-16.png
+│   ├── favicon-32.png
+│   ├── favicon-48.png
+│   └── favicon.ico
+├── icon/
+│   └── icon-512.png
+├── logo/
+│   └── logo-1024.png
+├── social/
+│   └── social-card-1200x630.png
+└── manifest.json
+```
+
+The manifest includes asset paths plus reusable metadata fields:
+
+- `title`
+- `short_description`
+- `social_title`
+- `social_description`
+- `keywords`
 
 ### Custom Prompt Templates
 
@@ -174,16 +248,16 @@ Additional variables can be passed via `--var KEY=VALUE` on the CLI.
 ## 🔧 How It Works
 
 ```
-cli.py → config.py → detector.py → generator.py → processor.py
+cli.py → config.py → detector.py → planner.py → generator.py → processor.py
 ```
 
-1. **Config Loading** — Merges project, user, and default YAML configs with JSON Schema validation
+1. **Config Loading** — Merges bundled defaults, user config, and project config with JSON Schema validation
 2. **Project Detection** — Matches file patterns (`pyproject.toml` → Python, `package.json` → Node.js, etc.)
-3. **Prompt Building** — Fills template with project name, style, colors, and visual metaphor
-4. **Image Generation** — Calls OpenRouter API (OpenAI-compatible) with the constructed prompt
-5. **Chromakey → Transparent** — Pixel-level color distance matching converts background to alpha
-6. **Trim** — Crops transparent padding, resizes to fill original canvas with configurable margin
-7. **Compress** — Optimizes PNG with configurable quality/compression level
+3. **Planning** — Resolves the selected bundle, per-asset overrides, and output paths
+4. **Image Generation** — Calls OpenRouter API (OpenAI-compatible) for a canonical transparent brand mark
+5. **Processing** — Applies chromakey removal, trim, and compression to the source mark
+6. **Derivation** — Exports deterministic icon, favicon, and app-icon sizes from the source mark
+7. **Composition** — Builds the social card locally and writes a manifest JSON with metadata and asset paths
 
 ### Supported Project Types
 
