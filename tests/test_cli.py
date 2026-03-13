@@ -14,11 +14,14 @@ from repologogen import cli
 class DummyGenerator:
     """Minimal image generator stub for workflow tests."""
 
+    prompts: list[dict[str, str]] = []
+
     def __init__(self, project_path=None):
         self.project_path = project_path
 
     def generate(self, prompt, model, output_path, size="1K", aspect_ratio="1:1"):
-        del prompt, model, size, aspect_ratio
+        type(self).prompts.append({"prompt": prompt, "model": model, "size": size})
+        del aspect_ratio
         output_path.parent.mkdir(parents=True, exist_ok=True)
         Image.new("RGB", (1024, 1024), (0, 255, 0)).save(output_path, "PNG")
 
@@ -51,6 +54,7 @@ class TestRunGeneration:
 
     def test_core_brand_bundle_writes_assets_and_manifest(self, tmp_path, monkeypatch):
         _set_test_console(monkeypatch)
+        DummyGenerator.prompts = []
         monkeypatch.setattr(cli, "ImageGenerator", DummyGenerator)
         monkeypatch.setattr(cli, "get_api_key", lambda project_path=None: None)
         monkeypatch.setattr(cli, "digest_readme", lambda *args, **kwargs: "Generate brand assets.")
@@ -82,6 +86,9 @@ class TestRunGeneration:
         assert manifest["bundle"] == "core-brand"
         assert (tmp_path / "repologogen-assets" / "logo" / "logo-1024.png").exists()
         assert (tmp_path / "repologogen-assets" / "social" / "social-card-1200x630.png").exists()
+        assert len(DummyGenerator.prompts) == 2
+        assert "single bold symbol" in DummyGenerator.prompts[1]["prompt"]
+        assert "legible at 16x16 and 32x32" in DummyGenerator.prompts[1]["prompt"]
 
     def test_logo_bundle_respects_output_override(self, tmp_path, monkeypatch):
         _set_test_console(monkeypatch)

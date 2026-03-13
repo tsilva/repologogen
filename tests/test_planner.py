@@ -46,7 +46,7 @@ class TestResolveRunConfig:
         assert resolved.assets["logo"].style == "cli-style"
         assert resolved.assets["icon"].model == "cli-model"
 
-    def test_core_brand_disables_repo_name_in_source_assets(self, tmp_path):
+    def test_core_brand_disables_repo_name_only_for_small_assets(self, tmp_path):
         config = Config(include_repo_name=True)
         resolved = resolve_run_config(
             config,
@@ -55,7 +55,7 @@ class TestResolveRunConfig:
             cli_overrides={"bundle": "core-brand"},
         )
 
-        assert resolved.assets["logo"].include_repo_name is False
+        assert resolved.assets["logo"].include_repo_name is True
         assert resolved.assets["icon"].include_repo_name is False
         assert resolved.assets["favicon"].include_repo_name is False
 
@@ -86,6 +86,10 @@ class TestPlanAssets:
         assert "icon/icon-512.png" in {str(path) for path in paths}
         assert "favicon/favicon.ico" in {str(path) for path in paths}
         assert "social/social-card-1200x630.png" in {str(path) for path in paths}
+        source_keys = {item.key: item.source_key for item in plan.items}
+        assert source_keys["logo"] == "logo-mark"
+        assert source_keys["icon"] == "icon-mark"
+        assert source_keys["social-card"] == "icon-mark"
 
     def test_disabled_assets_are_skipped(self, tmp_path):
         config = Config(

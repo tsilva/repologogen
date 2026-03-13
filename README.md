@@ -18,7 +18,7 @@
 
 **The pain:** Every project needs a logo, but commissioning one takes time and money. Stock icons look generic. AI tools require manual transparency cleanup, awkward cropping, and repetitive prompt engineering.
 
-**The solution:** repologogen auto-detects your project type, builds a tailored prompt, generates a canonical brand mark via OpenRouter, and can expand it into a core brand pack with icons, favicons, a social card, and manifest data.
+**The solution:** repologogen auto-detects your project type, builds tailored prompts, generates a primary logo plus a dedicated icon mark via OpenRouter, and expands them into a core brand pack with icons, favicons, a social card, and manifest data.
 
 **The result:** Production-ready repo branding in under 30 seconds, with zero manual post-processing.
 
@@ -255,8 +255,8 @@ cli.py → config.py → detector.py → planner.py → generator.py → process
 2. **Project Detection** — Matches file patterns (`pyproject.toml` → Python, `package.json` → Node.js, etc.)
 3. **Planning** — Resolves the selected bundle, per-asset overrides, and output paths
 4. **Image Generation** — Calls OpenRouter API (OpenAI-compatible) for a canonical transparent brand mark
-5. **Processing** — Applies chromakey removal, trim, and compression to the source mark
-6. **Derivation** — Exports deterministic icon, favicon, and app-icon sizes from the source mark
+5. **Processing** — Applies chromakey removal, trim, and compression to the generated logo and icon sources
+6. **Derivation** — Exports deterministic favicon and app-icon sizes from the dedicated icon mark so they stay legible at very small sizes
 7. **Composition** — Builds the social card locally and writes a manifest JSON with metadata and asset paths
 
 ### Supported Project Types

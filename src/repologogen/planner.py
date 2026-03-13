@@ -121,8 +121,8 @@ def _resolve_asset_config(
     )
     include_repo_name = bool(overrides.get("include_repo_name", config.include_repo_name))
 
-    # Brand bundles reuse a text-free source mark for all deterministic derivatives.
-    if bundle == "core-brand" and name in {"logo", "icon", "favicon"}:
+    # Small assets in the brand bundle should always use a text-free symbol.
+    if bundle == "core-brand" and name in {"icon", "favicon"}:
         include_repo_name = False
 
     return ResolvedAssetConfig(
@@ -214,7 +214,7 @@ def plan_assets(run_config: ResolvedRunConfig) -> AssetPlan:
                 run_config.assets_dir / "logo" / "logo-1024.png",
                 width=1024,
                 height=1024,
-                source_key="master-mark",
+                source_key="logo-mark",
             )
         )
 
@@ -226,7 +226,7 @@ def plan_assets(run_config: ResolvedRunConfig) -> AssetPlan:
                 run_config.assets_dir / "icon" / "icon-512.png",
                 width=512,
                 height=512,
-                source_key="master-mark",
+                source_key="icon-mark",
             )
         )
         items.extend(
@@ -237,7 +237,7 @@ def plan_assets(run_config: ResolvedRunConfig) -> AssetPlan:
                     run_config.assets_dir / "app-icons" / "apple-touch-icon.png",
                     width=180,
                     height=180,
-                    source_key="master-mark",
+                    source_key="icon-mark",
                 ),
                 AssetPlanItem(
                     "app-icons-android-192",
@@ -245,7 +245,7 @@ def plan_assets(run_config: ResolvedRunConfig) -> AssetPlan:
                     run_config.assets_dir / "app-icons" / "android-chrome-192.png",
                     width=192,
                     height=192,
-                    source_key="master-mark",
+                    source_key="icon-mark",
                 ),
                 AssetPlanItem(
                     "app-icons-android-512",
@@ -253,7 +253,7 @@ def plan_assets(run_config: ResolvedRunConfig) -> AssetPlan:
                     run_config.assets_dir / "app-icons" / "android-chrome-512.png",
                     width=512,
                     height=512,
-                    source_key="master-mark",
+                    source_key="icon-mark",
                 ),
             ]
         )
@@ -267,7 +267,7 @@ def plan_assets(run_config: ResolvedRunConfig) -> AssetPlan:
                     run_config.assets_dir / "favicon" / "favicon-16.png",
                     width=16,
                     height=16,
-                    source_key="master-mark",
+                    source_key="icon-mark",
                 ),
                 AssetPlanItem(
                     "favicon-32",
@@ -275,7 +275,7 @@ def plan_assets(run_config: ResolvedRunConfig) -> AssetPlan:
                     run_config.assets_dir / "favicon" / "favicon-32.png",
                     width=32,
                     height=32,
-                    source_key="master-mark",
+                    source_key="icon-mark",
                 ),
                 AssetPlanItem(
                     "favicon-48",
@@ -283,13 +283,13 @@ def plan_assets(run_config: ResolvedRunConfig) -> AssetPlan:
                     run_config.assets_dir / "favicon" / "favicon-48.png",
                     width=48,
                     height=48,
-                    source_key="master-mark",
+                    source_key="icon-mark",
                 ),
                 AssetPlanItem(
                     "favicon-ico",
                     "favicon",
                     run_config.assets_dir / "favicon" / "favicon.ico",
-                    source_key="master-mark",
+                    source_key="icon-mark",
                 ),
             ]
         )
@@ -302,7 +302,7 @@ def plan_assets(run_config: ResolvedRunConfig) -> AssetPlan:
                 run_config.assets_dir / "social" / "social-card-1200x630.png",
                 width=1200,
                 height=630,
-                source_key="master-mark",
+                source_key="icon-mark",
             )
         )
 

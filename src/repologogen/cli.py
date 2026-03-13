@@ -93,7 +93,23 @@ def _build_asset_prompt(
     project_description: str,
     key_color: str,
     template_vars: dict[str, str] | None,
+    purpose: str = "default",
 ) -> str:
+    additional_instructions = asset_config.additional_instructions
+    if purpose == "icon-mark":
+        icon_focus = (
+            "Create a single bold symbol extracted from the main brand idea. "
+            "No text, letters, words, banners, mascots with tiny details, "
+            "or multiple competing elements. "
+            "Prioritize one dominant silhouette that remains legible at 16x16 and 32x32. "
+            "Use simple shapes, high contrast, and minimal internal detail."
+        )
+        additional_instructions = (
+            f"{additional_instructions}\n{icon_focus}".strip()
+            if additional_instructions
+            else icon_focus
+        )
+
     return build_prompt(
         project_name=project_name,
         style=asset_config.style,
@@ -101,7 +117,7 @@ def _build_asset_prompt(
         key_color=key_color,
         visual_metaphor=asset_config.visual_metaphor,
         include_repo_name=asset_config.include_repo_name,
-        additional_instructions=asset_config.additional_instructions,
+        additional_instructions=additional_instructions,
         prompt_template=asset_config.prompt_template,
         template_vars=template_vars,
         project_description=project_description,
@@ -330,6 +346,53 @@ def _build_manifest(
     }
 
 
+def _generate_master_asset(
+    generator: ImageGenerator,
+    run_config: Any,
+    *,
+    asset_config: ResolvedAssetConfig,
+    output_path: Path,
+    template_vars: dict[str, str] | None,
+    project_description: str,
+    purpose: str,
+    progress: Progress,
+    task_label: str,
+) -> None:
+    raw_prompt = _build_asset_prompt(
+        asset_config,
+        project_name=run_config.project_name,
+        project_description=project_description,
+        key_color=run_config.key_color,
+        template_vars=template_vars,
+        purpose=purpose,
+    )
+    prompt = _maybe_refine_prompt(
+        raw_prompt,
+        should_refine=run_config.refine_prompt,
+        target_model=asset_config.model,
+        project_path=run_config.project_path,
+        text_model=run_config.text_model,
+    )
+
+    console.print(f"\n[bold blue]{task_label} Prompt:[/bold blue]")
+    console.print(prompt)
+
+    task = progress.add_task(f"[green]Generating {task_label.lower()}...", total=None)
+    generator.generate(
+        prompt=prompt,
+        model=asset_config.model,
+        output_path=output_path,
+        size=asset_config.size,
+    )
+    progress.update(task, completed=True)
+
+    task = progress.add_task(
+        f"[green]Applying transparency to {task_label.lower()}...", total=None
+    )
+    _apply_post_processing(run_config, output_path)
+    progress.update(task, completed=True)
+
+
 def _generate_core_brand(
     generator: ImageGenerator,
     run_config: Any,
@@ -338,25 +401,6 @@ def _generate_core_brand(
     project_description: str,
     metadata: dict[str, Any],
 ) -> int:
-    master_config = run_config.assets["icon"]
-    raw_prompt = _build_asset_prompt(
-        master_config,
-        project_name=run_config.project_name,
-        project_description=project_description,
-        key_color=run_config.key_color,
-        template_vars=template_vars,
-    )
-    prompt = _maybe_refine_prompt(
-        raw_prompt,
-        should_refine=run_config.refine_prompt,
-        target_model=master_config.model,
-        project_path=run_config.project_path,
-        text_model=run_config.text_model,
-    )
-
-    console.print("\n[bold blue]Master Prompt:[/bold blue]")
-    console.print(prompt)
-
     run_config.assets_dir.mkdir(parents=True, exist_ok=True)
 
     with (
@@ -368,39 +412,68 @@ def _generate_core_brand(
         ) as progress,
     ):
         temp_root = Path(temp_dir)
-        master_path = temp_root / "master.png"
+        logo_master_path = temp_root / "logo-master.png"
+        icon_master_path = temp_root / "icon-master.png"
 
-        task = progress.add_task("[green]Generating master brand mark...", total=None)
-        generator.generate(
-            prompt=prompt,
-            model=master_config.model,
-            output_path=master_path,
-            size=master_config.size,
+        if run_config.assets["logo"].enabled:
+            _generate_master_asset(
+                generator,
+                run_config,
+                asset_config=run_config.assets["logo"],
+                output_path=logo_master_path,
+                template_vars=template_vars,
+                project_description=project_description,
+                purpose="logo-mark",
+                progress=progress,
+                task_label="Primary Logo",
+            )
+
+        icon_source_required = any(
+            item.source_key == "icon-mark" and item.kind != "manifest" for item in plan.items
         )
-        progress.update(task, completed=True)
-
-        task = progress.add_task("[green]Applying transparency...", total=None)
-        _apply_post_processing(run_config, master_path)
-        progress.update(task, completed=True)
+        if icon_source_required:
+            _generate_master_asset(
+                generator,
+                run_config,
+                asset_config=run_config.assets["icon"],
+                output_path=icon_master_path,
+                template_vars=template_vars,
+                project_description=project_description,
+                purpose="icon-mark",
+                progress=progress,
+                task_label="Icon Mark",
+            )
 
         for item in plan.items:
             if item.kind == "logo":
-                resize_png(master_path, item.output_path, (item.width or 1024, item.height or 1024))
+                resize_png(
+                    logo_master_path,
+                    item.output_path,
+                    (item.width or 1024, item.height or 1024),
+                )
             elif item.kind in {"icon", "app-icon"}:
-                resize_png(master_path, item.output_path, (item.width or 512, item.height or 512))
+                resize_png(
+                    icon_master_path,
+                    item.output_path,
+                    (item.width or 512, item.height or 512),
+                )
             elif item.kind == "favicon":
                 if item.output_path.suffix == ".ico":
                     continue
-                resize_png(master_path, item.output_path, (item.width or 32, item.height or 32))
+                resize_png(
+                    icon_master_path,
+                    item.output_path,
+                    (item.width or 32, item.height or 32),
+                )
 
         favicon_dir = run_config.assets_dir / "favicon"
         if run_config.assets["favicon"].enabled:
-            export_favicon_set(master_path, favicon_dir)
+            export_favicon_set(icon_master_path, favicon_dir)
 
         if run_config.assets["social_card"].enabled:
             social_path = run_config.assets_dir / "social" / "social-card-1200x630.png"
             compose_social_card(
-                master_path,
+                icon_master_path,
                 social_path,
                 project_name=run_config.project_name,
                 title=metadata.get("social_title", run_config.project_name),
@@ -409,8 +482,11 @@ def _generate_core_brand(
                     project_description or run_config.project_name,
                 ),
                 accent_color=(
-                    master_config.icon_colors[0]
-                    if isinstance(master_config.icon_colors, list) and master_config.icon_colors
+                    run_config.assets["icon"].icon_colors[0]
+                    if (
+                        isinstance(run_config.assets["icon"].icon_colors, list)
+                        and run_config.assets["icon"].icon_colors
+                    )
                     else "#58a6ff"
                 ),
             )
