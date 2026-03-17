@@ -17,7 +17,6 @@ from rich.table import Table
 from repologogen.config import (
     TARGET_NAMES,
     ConfigValidationError,
-    expand_path,
     get_api_key,
     load_merged_config,
 )
@@ -71,26 +70,15 @@ def _parse_template_vars(values: list[str]) -> dict[str, str]:
 def _load_config(
     project_path: Path,
     config_path: Path | None,
-    *,
-    no_user_config: bool = False,
 ) -> Any:
-    user_config_path = (
-        Path("/nonexistent-repologogen-user-config.yaml")
-        if no_user_config
-        else expand_path("~/.repologogen/config.yaml")
-    )
     if config_path:
         return load_merged_config(
-            user_config_path=user_config_path,
             project_config_path=config_path,
             require_project_config=True,
             project_root=project_path,
         )
 
-    return load_merged_config(
-        user_config_path=user_config_path,
-        project_root=project_path,
-    )
+    return load_merged_config(project_root=project_path)
 
 
 def _get_project_description(
@@ -835,7 +823,6 @@ def run_generation(
     style: str | None = None,
     model: str | None = None,
     project_name_override: str | None = None,
-    no_user_config: bool = False,
     no_refine: bool = False,
     no_trim: bool = False,
     no_compress: bool = False,
@@ -843,7 +830,7 @@ def run_generation(
     """Run the configured generation workflow."""
     try:
         with console.status("[bold green]Loading configuration..."):
-            config = _load_config(project_path, config_path, no_user_config=no_user_config)
+            config = _load_config(project_path, config_path)
     except ConfigValidationError as error:
         console.print(f"[bold red]Configuration Error:[/bold red] {error}")
         if error.file_path:
@@ -912,7 +899,7 @@ def run_generation(
     except ImageGeneratorError as error:
         console.print(f"[bold red]Error:[/bold red] {error}")
         console.print(
-            "[dim]Set OPENROUTER_API_KEY in environment or ~/.repologogen/config.yaml[/dim]"
+            "[dim]Set OPENROUTER_API_KEY in the environment or in the project's .config.yaml[/dim]"
         )
         return 1
 
@@ -972,11 +959,6 @@ def main() -> int:
     parser.add_argument("-m", "--model", help="Override image generation model")
     parser.add_argument("-n", "--name", help="Override project name")
     parser.add_argument(
-        "--no-user-config",
-        action="store_true",
-        help="Ignore ~/.repologogen/config.yaml and use only project config plus built-in defaults",
-    )
-    parser.add_argument(
         "--no-trim", action="store_true", help="Disable transparent padding trimming"
     )
     parser.add_argument("--no-compress", action="store_true", help="Disable PNG compression")
@@ -1021,7 +1003,6 @@ def main() -> int:
         style=args.style,
         model=args.model,
         project_name_override=args.name,
-        no_user_config=args.no_user_config,
         no_refine=args.no_refine,
         no_trim=args.no_trim,
         no_compress=args.no_compress,

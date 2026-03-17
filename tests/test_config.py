@@ -9,6 +9,7 @@ from repologogen.config import (
     Config,
     ConfigValidationError,
     find_unresolved_vars,
+    get_api_key,
     get_bundled_defaults,
     has_unresolved_vars,
     load_merged_config,
@@ -196,74 +197,52 @@ class TestLoadMergedConfig:
     def test_uses_bundled_defaults(self):
         """Test that bundled defaults are used as base."""
         config = load_merged_config(
-            user_config_path=Path("/nonexistent-user-config.yaml"),
             project_config_path=Path("/nonexistent-project-config.yaml"),
         )
         assert config.style == DEFAULT_STYLE
         assert config.key_color == "#00FF00"
 
-    def test_user_config_overrides_bundled(self, tmp_path):
-        """Test user config overrides bundled defaults."""
-        # Create user config
-        user_config = tmp_path / "user_config.yaml"
-        user_data = get_bundled_defaults()
-        user_data["style"] = "user_custom"
-        user_config.write_text(yaml.dump(user_data))
-
-        config = load_merged_config(
-            user_config_path=user_config,
-            project_config_path=tmp_path / "missing-project.yaml",
-        )
-        assert config.style == "user_custom"
-        assert config.key_color == "#00FF00"  # Bundled default preserved
-
-    def test_project_config_overrides_user(self, tmp_path):
-        """Test project config has highest priority."""
-        # Create user config
-        user_config = tmp_path / "user_config.yaml"
-        user_data = get_bundled_defaults()
-        user_data["style"] = "user_custom"
-        user_config.write_text(yaml.dump(user_data))
-
-        # Create project config
+    def test_project_config_overrides_bundled(self, tmp_path):
+        """Test project config overrides bundled defaults."""
         project_config = tmp_path / "project_config.yaml"
         project_data = get_bundled_defaults()
         project_data["style"] = "project_custom"
         project_config.write_text(yaml.dump(project_data))
-
         config = load_merged_config(
-            user_config_path=user_config,
             project_config_path=project_config,
         )
         assert config.style == "project_custom"
+        assert config.key_color == "#00FF00"  # Bundled default preserved
+
+    def test_explicit_project_config_overrides_discovered_project_config(self, tmp_path):
+        """Test explicit project config path has highest priority."""
+        project_root = tmp_path / "project"
+        project_root.mkdir()
+        (project_root / ".config.yaml").write_text(yaml.dump({"style": "repo_custom"}))
+        project_config = tmp_path / "project_config.yaml"
+        project_data = get_bundled_defaults()
+        project_data["style"] = "explicit_custom"
+        project_config.write_text(yaml.dump(project_data))
+
+        config = load_merged_config(
+            project_config_path=project_config,
+            project_root=project_root,
+        )
+        assert config.style == "explicit_custom"
 
     def test_tracks_sources_in_meta(self, tmp_path):
         """Test that config sources are tracked in meta."""
-        # Create user config
-        user_config = tmp_path / "user_config.yaml"
-        user_data = get_bundled_defaults()
-        user_data["style"] = "custom"
-        user_config.write_text(yaml.dump(user_data))
+        project_config = tmp_path / "project_config.yaml"
+        project_data = get_bundled_defaults()
+        project_data["style"] = "custom"
+        project_config.write_text(yaml.dump(project_data))
 
         config = load_merged_config(
-            user_config_path=user_config,
-            project_config_path=tmp_path / "missing-project.yaml",
+            project_config_path=project_config,
         )
         sources = config.meta.get("sources", [])
         assert "bundled_defaults" in sources
-        assert str(user_config) in sources
-
-    def test_raises_on_invalid_user_config(self, tmp_path):
-        """Test raises when user config is invalid."""
-        # Create invalid user config
-        user_config = tmp_path / "user_config.yaml"
-        user_config.write_text(yaml.dump({"invalid": "config"}))
-
-        with pytest.raises(ConfigValidationError):
-            load_merged_config(
-                user_config_path=user_config,
-                project_config_path=tmp_path / "missing-project.yaml",
-            )
+        assert str(project_config) in sources
 
     def test_raises_on_invalid_project_config(self, tmp_path):
         """Test raises when project config is invalid."""
@@ -273,7 +252,6 @@ class TestLoadMergedConfig:
 
         with pytest.raises(ConfigValidationError):
             load_merged_config(
-                user_config_path=tmp_path / "missing-user.yaml",
                 project_config_path=project_config,
             )
 
@@ -283,10 +261,7 @@ class TestLoadMergedConfig:
         project_root.mkdir()
         (project_root / ".config.yaml").write_text(yaml.dump({"style": "repo_style"}))
 
-        config = load_merged_config(
-            user_config_path=tmp_path / "missing-user.yaml",
-            project_root=project_root,
-        )
+        config = load_merged_config(project_root=project_root)
         assert config.style == "repo_style"
 
     def test_asset_overrides_are_loaded(self, tmp_path):
@@ -306,7 +281,6 @@ class TestLoadMergedConfig:
         )
 
         config = load_merged_config(
-            user_config_path=tmp_path / "missing-user.yaml",
             project_config_path=project_config,
         )
         assert config.assets["icon"]["style"] == "flat badge"
@@ -451,23 +425,34 @@ class TestLoadMergedConfigWithUnresolvedVars:
 
         with pytest.raises(ConfigValidationError) as exc_info:
             load_merged_config(
-                user_config_path=tmp_path / "missing-user.yaml",
                 project_config_path=project_config,
             )
 
         assert "unresolved environment variables" in str(exc_info.value)
 
-    def test_rejects_user_config_with_unresolved_vars(self, tmp_path):
-        """Test rejects user config with unresolved vars."""
-        user_config = tmp_path / "user_config.yaml"
-        data = get_bundled_defaults()
-        data["style"] = "$MY_STYLE"
-        user_config.write_text(yaml.dump(data))
+    def test_rejects_discovered_project_config_with_unresolved_vars(self, tmp_path):
+        """Test rejects discovered project config with unresolved vars."""
+        project_root = tmp_path / "project"
+        project_root.mkdir()
+        (project_root / ".config.yaml").write_text(yaml.dump({"style": "$MY_STYLE"}))
 
         with pytest.raises(ConfigValidationError) as exc_info:
-            load_merged_config(
-                user_config_path=user_config,
-                project_config_path=tmp_path / "missing-project.yaml",
-            )
+            load_merged_config(project_root=project_root)
 
         assert "unresolved environment variables" in str(exc_info.value)
+
+
+class TestGetApiKey:
+    """Test API key resolution."""
+
+    def test_prefers_environment_variable(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("OPENROUTER_API_KEY", "env-key")
+        (tmp_path / ".config.yaml").write_text("openrouter_api_key: project-key\n")
+
+        assert get_api_key(tmp_path) == "env-key"
+
+    def test_reads_project_config_when_env_missing(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+        (tmp_path / ".config.yaml").write_text("openrouter_api_key: project-key\n")
+
+        assert get_api_key(tmp_path) == "project-key"

@@ -31,7 +31,7 @@
 - **Platform Packs** — Add Web SEO, Google Play, and Apple Store assets with repeatable `--target` flags
 - **Reference-Guided Marketing Art** — Generate text-bearing graphics from the main logo as a visual reference instead of stretching/resizing them
 - **Project Detection** — Recognizes Python, Node.js, Rust, Go, Java, .NET, Ruby, PHP, and C++ projects
-- **3-Tier Config** — Project `.config.yaml` > User `~/.repologogen/config.yaml` > Built-in defaults
+- **Project-Scoped Config** — Project `.config.yaml` > Built-in defaults
 - **Custom Prompts** — Full template system with variables for style, colors, metaphors, and more
 - **PNG Compression** — Optimized file size with configurable quality
 - **Dry Run Mode** — Preview the generated prompt before spending API credits
@@ -58,9 +58,8 @@ pip install -e .
 # Option A: Environment variable
 export OPENROUTER_API_KEY="your-key"
 
-# Option B: User config (persists across projects)
-mkdir -p ~/.repologogen
-echo 'openrouter_api_key: your-key' > ~/.repologogen/config.yaml
+# Option B: Project config
+printf 'openrouter_api_key: your-key\n' > .config.yaml
 ```
 
 **2. Generate:**
@@ -131,10 +130,10 @@ repologogen -v
 
 ## ⚙️ Configuration
 
-Configuration loads in priority order — project overrides user, user overrides defaults:
+Configuration loads in priority order:
 
 ```
-.config.yaml (project) > ~/.repologogen/config.yaml (user) > built-in defaults
+.config.yaml (project) > built-in defaults
 ```
 
 **Example `.config.yaml`:**
@@ -154,7 +153,8 @@ icon_colors:
   - "#a371f7"
 key_color: "#00FF00"
 tolerance: 70
-output_path: logo.png
+ output_path: logo.png
+openrouter_api_key: your-key
 include_repo_name: true
 trim: true
 trim_margin: 5
@@ -293,7 +293,7 @@ Additional variables can be passed via `--var KEY=VALUE` on the CLI.
 cli.py → config.py → detector.py → planner.py → generator.py → processor.py
 ```
 
-1. **Config Loading** — Merges bundled defaults, user config, and project config with JSON Schema validation
+1. **Config Loading** — Merges bundled defaults and project config with JSON Schema validation
 2. **Project Detection** — Matches file patterns (`pyproject.toml` → Python, `package.json` → Node.js, etc.)
 3. **Planning** — Resolves the selected bundle, per-asset overrides, and output paths
 4. **Image Generation** — Calls OpenRouter API (OpenAI-compatible) for a canonical transparent brand mark

@@ -45,7 +45,7 @@ class ImageGenerator:
         if not self.api_key:
             raise ImageGeneratorError(
                 "API key required. Set OPENROUTER_API_KEY environment variable or "
-                "configure ~/.repologogen/config.yaml"
+                "configure .config.yaml in the project root"
             )
 
         self.base_url = base_url.rstrip("/")

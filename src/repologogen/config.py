@@ -313,20 +313,11 @@ def load_merged_config(
     require_user_config: bool = False,
     require_project_config: bool = False,
 ) -> Config:
-    """Load and merge configuration (priority: CLI > project > user > defaults)."""
-    del bundled_config_path  # Kept for backward-compatible signature.
+    """Load and merge configuration (priority: CLI > project > defaults)."""
+    del bundled_config_path, user_config_path, require_user_config  # Backward-compatible.
 
     merged = get_bundled_defaults()
     sources = ["bundled_defaults"]
-
-    resolved_user_config = user_config_path or expand_path("~/.repologogen/config.yaml")
-    if resolved_user_config.exists():
-        merge_configs(merged, load_yaml_file(resolved_user_config))
-        sources.append(str(resolved_user_config))
-    elif require_user_config:
-        raise ConfigValidationError(
-            f"Configuration file not found: {resolved_user_config}", resolved_user_config
-        )
 
     resolved_project_config = project_config_path
     if resolved_project_config is None:
@@ -349,17 +340,18 @@ def load_merged_config(
 
 
 def get_api_key(project_path: Path | None = None) -> str | None:
-    """Get OpenRouter API key from environment or user config."""
-    del project_path
-
+    """Get OpenRouter API key from environment or project config."""
     api_key = os.getenv("OPENROUTER_API_KEY")
     if api_key:
         return api_key
 
-    user_config_path = expand_path("~/.repologogen/config.yaml")
-    if user_config_path.exists():
+    if project_path is None:
+        return None
+
+    project_config_path = project_path / ".config.yaml"
+    if project_config_path.exists():
         try:
-            with open(user_config_path, encoding="utf-8") as handle:
+            with open(project_config_path, encoding="utf-8") as handle:
                 config = yaml.safe_load(handle) or {}
         except (yaml.YAMLError, OSError):
             return None

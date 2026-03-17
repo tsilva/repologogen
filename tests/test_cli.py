@@ -261,26 +261,16 @@ class TestRunGeneration:
         assert result == 0
         assert (tmp_path / output_path).exists()
 
-    def test_no_user_config_uses_built_in_defaults(self, tmp_path, monkeypatch):
+    def test_project_without_config_uses_built_in_defaults(self, tmp_path, monkeypatch):
         _set_test_console(monkeypatch)
         monkeypatch.setattr(cli, "ImageGenerator", DummyGenerator)
         monkeypatch.setattr(cli, "get_api_key", lambda project_path=None: None)
         monkeypatch.setattr(cli, "digest_readme", lambda *args, **kwargs: "")
 
-        user_config = tmp_path / "user-config.yaml"
-        user_config.write_text(
-            "style: noisy style\ninclude_repo_name: true\nadditional_instructions: noisy extra\n",
-            encoding="utf-8",
-        )
-        monkeypatch.setattr(cli, "expand_path", lambda path: user_config)
-
         (tmp_path / "pyproject.toml").write_text("[project]\nname='demo'\n")
         DummyGenerator.prompts = []
 
-        result = cli.run_generation(
-            project_path=tmp_path,
-            no_user_config=True,
-        )
+        result = cli.run_generation(project_path=tmp_path)
 
         assert result == 0
         assert DummyGenerator.prompts

@@ -24,9 +24,9 @@ CLI tool that generates professional logos with transparent backgrounds via Open
 - **generator.py** - OpenRouter API client (OpenAI-compatible), prompt template builder
 - **processor.py** - Pillow-based image processing: chromakey→transparent, trim, compress
 
-**Config priority**: project `.config.yaml` > user `~/.repologogen/config.yaml` (at least one required)
+**Config priority**: project `.config.yaml` > built-in defaults
 
-**API key sources** (checked in order): `OPENROUTER_API_KEY` env var → `~/.repologogen/config.yaml`
+**API key sources** (checked in order): `OPENROUTER_API_KEY` env var → project `.config.yaml`
 
 ## Code Style
 
