@@ -13,7 +13,7 @@ class TestResolveRunConfig:
 
         assert resolved.bundle == "logo"
         assert resolved.output_path == tmp_path / "logo.png"
-        assert resolved.assets["logo"].style == "minimalist"
+        assert resolved.assets["logo"].style == "bold, cinematic, sensory-rich brand icon"
 
     def test_asset_overrides_inherit_from_globals(self, tmp_path):
         config = Config(

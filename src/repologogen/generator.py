@@ -23,9 +23,12 @@ class ImageGenerator:
 
     DEFAULT_TEMPLATE = (
         "A {STYLE} logo for {PROJECT_NAME}.{PROJECT_DESCRIPTION} {VISUAL_METAPHOR}.\n"
-        "Clean vector style. Icon colors from: {ICON_COLORS}.\n"
+        "Distinctive, premium brand identity with a memorable silhouette and emotionally vivid "
+        "visual impact. Engage the senses: rich contrast, tactile form, cinematic presence, "
+        "and striking color interplay. Avoid bland, generic, corporate, or template-like marks. "
+        "Icon colors from: {ICON_COLORS}.\n"
         "Pure {KEY_COLOR} background only. Do not use similar tones in the design.\n"
-        "{TEXT_INSTRUCTIONS} Single centered icon, geometric shapes. "
+        "{TEXT_INSTRUCTIONS} Single centered icon with bold form language. "
         "The icon must fill the entire canvas edge-to-edge with minimal padding. "
         "No empty space around the design. Scalable to small sizes."
     )

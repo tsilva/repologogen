@@ -240,6 +240,9 @@ def compose_marketing_graphic(
     description: str,
     size: tuple[int, int] = (1200, 630),
     accent_color: str = "#58a6ff",
+    title_max_lines: int = 3,
+    description_max_lines: int = 4,
+    show_project_label: bool = True,
 ) -> dict[str, object]:
     """Compose a deterministic marketing graphic using the generated brand image."""
     width, height = size
@@ -305,26 +308,37 @@ def compose_marketing_graphic(
 
     text_left = brand_bg_x + brand_frame + max(48, int(width * 0.05))
     text_width = width - text_left - max(56, int(width * 0.06))
-    draw.text(
-        (text_left, max(72, int(height * 0.16))),
-        project_name.upper(),
-        fill=(180, 198, 227),
-        font=eyebrow_font,
-    )
+    title_start = max(120, int(height * 0.29))
+    if show_project_label:
+        draw.text(
+            (text_left, max(72, int(height * 0.16))),
+            project_name.upper(),
+            fill=(180, 198, 227),
+            font=eyebrow_font,
+        )
+    else:
+        title_start = max(96, int(height * 0.22))
 
-    title_lines = _wrap_text(draw, title, title_font, text_width, max_lines=3)
-    y_offset = max(120, int(height * 0.29))
+    title_lines = _wrap_text(draw, title, title_font, text_width, max_lines=title_max_lines)
+    y_offset = title_start
     for line in title_lines:
         draw.text((text_left, y_offset), line, fill=(255, 255, 255), font=title_font)
         line_bbox = draw.textbbox((text_left, y_offset), line, font=title_font)
         y_offset = line_bbox[3] + 8
 
-    body_lines = _wrap_text(draw, description, body_font, text_width, max_lines=4)
-    y_offset += 24
-    for line in body_lines:
-        draw.text((text_left, y_offset), line, fill=(210, 220, 238), font=body_font)
-        line_bbox = draw.textbbox((text_left, y_offset), line, font=body_font)
-        y_offset = line_bbox[3] + 6
+    if description_max_lines > 0 and description.strip():
+        body_lines = _wrap_text(
+            draw,
+            description,
+            body_font,
+            text_width,
+            max_lines=description_max_lines,
+        )
+        y_offset += 24
+        for line in body_lines:
+            draw.text((text_left, y_offset), line, fill=(210, 220, 238), font=body_font)
+            line_bbox = draw.textbbox((text_left, y_offset), line, font=body_font)
+            y_offset = line_bbox[3] + 6
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     canvas.convert("RGB").save(output_path, "PNG")
@@ -349,6 +363,9 @@ def compose_social_card(
         description=description,
         size=(1200, 630),
         accent_color=accent_color,
+        title_max_lines=3,
+        description_max_lines=4,
+        show_project_label=True,
     )
 
 

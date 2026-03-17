@@ -245,6 +245,27 @@ class TestComposeMarketingGraphic:
         assert result["size"] == (1024, 500)
         assert Image.open(output_path).size == (1024, 500)
 
+    def test_creates_brand_only_graphic_without_project_label(self, tmp_path):
+        img = Image.new("RGBA", (512, 512), (0, 128, 255, 255))
+        brand_path = tmp_path / "brand.png"
+        output_path = tmp_path / "og.png"
+        img.save(brand_path, "PNG")
+
+        result = compose_marketing_graphic(
+            brand_path,
+            output_path,
+            project_name="RepoLogoGen",
+            title="RepoLogoGen",
+            description="",
+            size=(1200, 630),
+            title_max_lines=1,
+            description_max_lines=0,
+            show_project_label=False,
+        )
+
+        assert result["size"] == (1200, 630)
+        assert Image.open(output_path).size == (1200, 630)
+
 
 class TestWriteSiteWebmanifest:
     """Test site webmanifest generation."""

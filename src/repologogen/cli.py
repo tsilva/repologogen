@@ -51,6 +51,13 @@ from repologogen.processor import (
 console = Console()
 
 
+def _truncate_words(text: str, max_words: int) -> str:
+    words = text.split()
+    if len(words) <= max_words:
+        return text.strip()
+    return " ".join(words[:max_words]).rstrip(",.;:") + "..."
+
+
 def _parse_template_vars(values: list[str]) -> dict[str, str]:
     template_vars: dict[str, str] = {}
     for value in values:
@@ -61,16 +68,29 @@ def _parse_template_vars(values: list[str]) -> dict[str, str]:
     return template_vars
 
 
-def _load_config(project_path: Path, config_path: Path | None) -> Any:
+def _load_config(
+    project_path: Path,
+    config_path: Path | None,
+    *,
+    no_user_config: bool = False,
+) -> Any:
+    user_config_path = (
+        Path("/nonexistent-repologogen-user-config.yaml")
+        if no_user_config
+        else expand_path("~/.repologogen/config.yaml")
+    )
     if config_path:
         return load_merged_config(
-            user_config_path=expand_path("~/.repologogen/config.yaml"),
+            user_config_path=user_config_path,
             project_config_path=config_path,
             require_project_config=True,
             project_root=project_path,
         )
 
-    return load_merged_config(project_root=project_path)
+    return load_merged_config(
+        user_config_path=user_config_path,
+        project_root=project_path,
+    )
 
 
 def _get_project_description(
@@ -130,17 +150,13 @@ def _build_asset_prompt(
             "No chromakey background, no transparency requirement."
         )
         include_repo_name = True
-        social_title = (metadata or {}).get("social_title", project_name)
-        social_description = (metadata or {}).get(
-            "social_description",
-            project_description or project_name,
-        )
         social_instructions = (
-            f'Use "{social_title}" as the primary headline. '
-            f'Include this supporting line or close paraphrase: "{social_description}". '
-            "Make the typography prominent and readable in a link preview. "
-            "Keep all critical text and the focal brand elements inside a centered safe area "
-            "so the image can be cropped slightly to the final export size."
+            "Create a pure brand card for social sharing. Do not add any headline, tagline, "
+            "body copy, feature list, slogan, caption, or extra text block. If text appears at "
+            "all, it must only be the project name as part of the brand lockup or logo itself. "
+            "Emphasize the logo, brand mark, and brand styling. Keep all critical brand "
+            "elements inside a centered safe area so the image can be cropped slightly to the "
+            "final export size."
         )
         additional_instructions = (
             f"{additional_instructions}\n{social_instructions}".strip()
@@ -509,9 +525,16 @@ def _compose_marketing_fallback(
 ) -> None:
     source_path = icon_master_path if icon_master_path.exists() else logo_master_path
     title = str(metadata.get("social_title") or run_config.project_name)
-    description = str(
-        metadata.get("social_description") or metadata.get("short_description") or ""
-    )
+    description = str(metadata.get("social_description") or metadata.get("short_description") or "")
+    title_max_lines = 3
+    description_max_lines = 4
+    show_project_label = True
+    if item.target == "web-seo" and item.kind == "social-card":
+        title = run_config.project_name
+        description = ""
+        title_max_lines = 1
+        description_max_lines = 0
+        show_project_label = False
     compose_marketing_graphic(
         source_path,
         item.output_path,
@@ -527,6 +550,9 @@ def _compose_marketing_fallback(
             )
             else "#58a6ff"
         ),
+        title_max_lines=title_max_lines,
+        description_max_lines=description_max_lines,
+        show_project_label=show_project_label,
     )
     if run_config.compress:
         compress_png(item.output_path, item.output_path, quality=run_config.compress_quality)
@@ -690,6 +716,7 @@ def run_generation(
     style: str | None = None,
     model: str | None = None,
     project_name_override: str | None = None,
+    no_user_config: bool = False,
     no_refine: bool = False,
     no_trim: bool = False,
     no_compress: bool = False,
@@ -697,7 +724,7 @@ def run_generation(
     """Run the configured generation workflow."""
     try:
         with console.status("[bold green]Loading configuration..."):
-            config = _load_config(project_path, config_path)
+            config = _load_config(project_path, config_path, no_user_config=no_user_config)
     except ConfigValidationError as error:
         console.print(f"[bold red]Configuration Error:[/bold red] {error}")
         if error.file_path:
@@ -826,6 +853,11 @@ def main() -> int:
     parser.add_argument("-m", "--model", help="Override image generation model")
     parser.add_argument("-n", "--name", help="Override project name")
     parser.add_argument(
+        "--no-user-config",
+        action="store_true",
+        help="Ignore ~/.repologogen/config.yaml and use only project config plus built-in defaults",
+    )
+    parser.add_argument(
         "--no-trim", action="store_true", help="Disable transparent padding trimming"
     )
     parser.add_argument("--no-compress", action="store_true", help="Disable PNG compression")
@@ -870,6 +902,7 @@ def main() -> int:
         style=args.style,
         model=args.model,
         project_name_override=args.name,
+        no_user_config=args.no_user_config,
         no_refine=args.no_refine,
         no_trim=args.no_trim,
         no_compress=args.no_compress,

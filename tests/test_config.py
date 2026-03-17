@@ -18,6 +18,8 @@ from repologogen.config import (
     validate_no_unresolved_vars,
 )
 
+DEFAULT_STYLE = "bold, cinematic, sensory-rich brand icon"
+
 
 class TestConfigModel:
     """Test Config model."""
@@ -25,7 +27,7 @@ class TestConfigModel:
     def test_default_values(self):
         """Test default configuration values."""
         config = Config()
-        assert config.style == "minimalist"
+        assert config.style == DEFAULT_STYLE
         assert config.key_color == "#00FF00"
         assert config.output_path == "logo.png"
         assert config.targets == []
@@ -152,7 +154,7 @@ class TestLoadYamlFile:
 
         result = load_yaml_file(config_file)
         assert "style" in result
-        assert result["style"] == "minimalist"
+        assert result["style"] == DEFAULT_STYLE
 
     def test_raises_for_missing_file(self, tmp_path):
         """Test raises ConfigValidationError for missing file."""
@@ -197,7 +199,7 @@ class TestLoadMergedConfig:
             user_config_path=Path("/nonexistent-user-config.yaml"),
             project_config_path=Path("/nonexistent-project-config.yaml"),
         )
-        assert config.style == "minimalist"
+        assert config.style == DEFAULT_STYLE
         assert config.key_color == "#00FF00"
 
     def test_user_config_overrides_bundled(self, tmp_path):
@@ -318,7 +320,7 @@ class TestBundledDefaults:
         """Test that bundled defaults can be loaded."""
         defaults = get_bundled_defaults()
         assert "style" in defaults
-        assert defaults["style"] == "minimalist"
+        assert defaults["style"] == DEFAULT_STYLE
         assert "model" in defaults
 
     def test_returns_dict(self):

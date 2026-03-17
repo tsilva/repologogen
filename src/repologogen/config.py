@@ -55,7 +55,7 @@ class Config:
     text_model: str = "google/gemini-3-flash-preview"
     size: str = "1K"
     prompt_template: str | None = None
-    style: str = "minimalist"
+    style: str = "bold, cinematic, sensory-rich brand icon"
     visual_metaphor: str | None = None
     include_repo_name: bool = False
     icon_colors: list[str] | str = field(
@@ -282,7 +282,7 @@ def get_bundled_defaults() -> dict[str, Any]:
         "text_model": "google/gemini-3-flash-preview",
         "size": "1K",
         "prompt_template": None,
-        "style": "minimalist",
+        "style": "bold, cinematic, sensory-rich brand icon",
         "visual_metaphor": None,
         "include_repo_name": False,
         "icon_colors": ["#58a6ff", "#d29922", "#a371f7", "#7aa2f7", "#f97583"],

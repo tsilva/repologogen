@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="logo.png" alt="repologogen" width="512"/>
+  <img src="https://raw.githubusercontent.com/tsilva/repologogen/main/logo.png" alt="repologogen" width="512"/>
 
   [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
   [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-3776AB.svg?logo=python&logoColor=white)](https://www.python.org)
@@ -171,7 +171,7 @@ assets:
 |--------|---------|-------------|
 | `model` | `google/gemini-3-pro-image-preview` | AI model for image generation |
 | `size` | `1K` | Image size (`1K`, `2K`, etc.) |
-| `style` | `minimalist` | Logo style descriptor |
+| `style` | `bold, cinematic, sensory-rich brand icon` | Logo style descriptor |
 | `visual_metaphor` | `null` | Custom visual metaphor (`null` = auto-detect, `none` = abstract) |
 | `include_repo_name` | `false` | Include project name as text in logo |
 | `icon_colors` | `["#58a6ff", ...]` | Color palette (array or string) |
@@ -206,6 +206,7 @@ Supported override keys per asset:
 - `prompt_template`
 
 `assets.social_card` controls the wide text-bearing graphics, including the `web-seo` OG image and Google Play feature graphic.
+The `web-seo` OG image uses a typical preview-card layout: one short headline plus an optional short tagline.
 
 ### Bundle Output
 
