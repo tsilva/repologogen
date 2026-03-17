@@ -6,6 +6,7 @@ This file provides guidance to Claude Code when working in this repository.
 
 - **Install**: `pip install -e ".[dev]"`
 - **Run**: `repologogen [path] [options]`
+- **Install Codex skill**: `python3 scripts/install_codex_skill.py`
 - **Test all**: `pytest`
 - **Test single**: `pytest tests/test_config.py::TestClassName::test_name -v`
 - **Lint**: `ruff check src/ tests/`
@@ -38,3 +39,6 @@ Configured in `pyproject.toml`:
 ## Maintenance
 
 - README.md must be kept up to date with any significant project changes
+- The repo-owned Codex skill lives in `skills/repologogen/`
+- Any change to CLI flags, defaults, output paths, auth requirements, or workflow shortcuts must update `skills/repologogen/SKILL.md` and `skills/repologogen/agents/openai.yaml` if needed
+- Keep `scripts/install_codex_skill.py` working whenever the skill layout changes

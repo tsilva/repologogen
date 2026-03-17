@@ -42,12 +42,40 @@
 pip install repologogen
 ```
 
+Set the API key:
+
+```bash
+export OPENROUTER_API_KEY="your-key"
+```
+
 Or install from source:
 
 ```bash
 git clone https://github.com/tsilva/repologogen.git
 cd repologogen
 pip install -e .
+```
+
+## Codex Skill
+
+This repo includes a Codex skill source at `skills/repologogen/`.
+
+Install or refresh it into `~/.codex/skills/repologogen` with:
+
+```bash
+python3 scripts/install_codex_skill.py
+```
+
+Or via Make:
+
+```bash
+make install-skill
+```
+
+After installation, you can invoke it in any repo with prompts like:
+
+```text
+$repologogen generate web branding for this repo
 ```
 
 ## 🚀 Quick Start

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Repo Logo Gen"
+  short_description: "Generate repo logos and web brand packs with repologogen"
+  default_prompt: "Use $repologogen to generate branding for this repo with the shortest valid CLI command."

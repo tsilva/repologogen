@@ -1,3 +1,6 @@
+install-skill:
+	python3 scripts/install_codex_skill.py
+
 release-%:
 	hatch version $*
 	git add pyproject.toml
