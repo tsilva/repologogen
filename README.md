@@ -69,9 +69,6 @@ echo 'openrouter_api_key: your-key' > ~/.repologogen/config.yaml
 # Logo only
 repologogen
 
-# Full core brand pack
-repologogen --bundle core-brand
-
 # Core brand pack plus platform assets
 repologogen --bundle core-brand --target web-seo --target google-play --target apple-store
 ```
@@ -84,14 +81,11 @@ repologogen --bundle core-brand --target web-seo --target google-play --target a
 # Generate logo for current project
 repologogen
 
-# Generate the full core brand pack
-repologogen --bundle core-brand
-
 # Generate platform-ready assets from the base logo
 repologogen --bundle core-brand --target web-seo --target google-play
 
 # Target a specific project
-repologogen /path/to/project
+repologogen /path/to/project --bundle core-brand --target apple-store
 
 # Custom style across generated assets
 repologogen -s "pixel art"
@@ -100,7 +94,7 @@ repologogen -s "pixel art"
 repologogen -o assets/logo.png
 
 # Custom asset directory for the core brand bundle
-repologogen --bundle core-brand --assets-dir branding
+repologogen --bundle core-brand --target web-seo --assets-dir branding
 
 # Override project name
 repologogen -n "My Project"
@@ -116,8 +110,8 @@ repologogen -v
 
 | Flag | Description |
 |------|-------------|
-| `--bundle` | Select `logo` or `core-brand` generation mode |
-| `--target` | Add `web-seo`, `google-play`, and/or `apple-store` platform packs to `core-brand` |
+| `--bundle` | Select `logo` or target-driven `core-brand` generation mode |
+| `--target` | Required with `core-brand`; add `web-seo`, `google-play`, and/or `apple-store` |
 | `-s`, `--style` | Override logo style |
 | `-o`, `--output` | Override output path for the `logo` bundle |
 | `--assets-dir` | Override output directory for bundle assets |
@@ -211,33 +205,11 @@ Supported override keys per asset:
 - `size`
 - `prompt_template`
 
-`assets.social_card` controls the wide text-bearing graphics, including the legacy social card, `web-seo` OG image, and Google Play feature graphic.
+`assets.social_card` controls the wide text-bearing graphics, including the `web-seo` OG image and Google Play feature graphic.
 
 ### Bundle Output
 
-`repologogen --bundle core-brand` writes:
-
-```text
-repologogen-assets/
-├── app-icons/
-│   ├── android-chrome-192.png
-│   ├── android-chrome-512.png
-│   └── apple-touch-icon.png
-├── favicon/
-│   ├── favicon-16.png
-│   ├── favicon-32.png
-│   ├── favicon-48.png
-│   └── favicon.ico
-├── icon/
-│   └── icon-512.png
-├── logo/
-│   └── logo-1024.png
-├── social/
-│   └── social-card-1200x630.png
-└── manifest.json
-```
-
-When `--target` is used, repologogen keeps the shared logo/icon outputs and adds the selected platform pack folders:
+`repologogen --bundle core-brand --target ...` writes shared logo/icon outputs and the selected platform pack folders:
 
 ```text
 repologogen-assets/

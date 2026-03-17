@@ -63,10 +63,22 @@ class TestRunGeneration:
         result = cli.run_generation(
             project_path=tmp_path,
             bundle="core-brand",
+            targets=["web-seo"],
             dry_run=True,
         )
 
         assert result == 0
+
+    def test_core_brand_requires_targets(self, tmp_path, monkeypatch):
+        _set_test_console(monkeypatch)
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='demo'\n")
+
+        result = cli.run_generation(
+            project_path=tmp_path,
+            bundle="core-brand",
+        )
+
+        assert result == 1
 
     def test_core_brand_bundle_writes_assets_and_manifest(self, tmp_path, monkeypatch):
         _set_test_console(monkeypatch)
@@ -93,6 +105,7 @@ class TestRunGeneration:
         result = cli.run_generation(
             project_path=tmp_path,
             bundle="core-brand",
+            targets=["web-seo"],
         )
 
         assert result == 0
@@ -101,7 +114,7 @@ class TestRunGeneration:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         assert manifest["bundle"] == "core-brand"
         assert (tmp_path / "repologogen-assets" / "logo" / "logo-1024.png").exists()
-        assert (tmp_path / "repologogen-assets" / "social" / "social-card-1200x630.png").exists()
+        assert (tmp_path / "repologogen-assets" / "web-seo" / "og-image-1200x630.png").exists()
         assert len(DummyGenerator.prompts) == 3
         assert "single bold symbol" in DummyGenerator.prompts[1]["prompt"]
         assert "legible at 16x16 and 32x32" in DummyGenerator.prompts[1]["prompt"]
@@ -109,7 +122,7 @@ class TestRunGeneration:
         assert DummyGenerator.prompts[2]["aspect_ratio"] == "40:21"
         assert len(DummyGenerator.prompts[2]["reference_images"]) == 1
         social_asset = next(
-            asset for asset in manifest["assets"] if asset["key"] == "social-card"
+            asset for asset in manifest["assets"] if asset["key"] == "web-seo-og-image"
         )
         assert social_asset["strategy"] == "generated_from_logo_reference"
 

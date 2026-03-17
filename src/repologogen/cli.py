@@ -681,6 +681,12 @@ def run_generation(
             "[bold red]Error:[/bold red] --target can only be used with the core-brand bundle"
         )
         return 1
+    if run_config.bundle == "core-brand" and not run_config.targets:
+        console.print(
+            "[bold red]Error:[/bold red] core-brand now requires at least one --target "
+            "(web-seo, google-play, apple-store)"
+        )
+        return 1
 
     plan = plan_assets(run_config)
     readme_path = find_readme(project_path)

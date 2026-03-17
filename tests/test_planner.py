@@ -79,7 +79,7 @@ class TestPlanAssets:
 
     def test_core_brand_plans_expected_outputs(self, tmp_path):
         run_config = resolve_run_config(
-            Config(bundle="core-brand"),
+            Config(bundle="core-brand", targets=["web-seo"]),
             tmp_path,
             "python",
             cli_overrides={"bundle": "core-brand"},
@@ -89,17 +89,17 @@ class TestPlanAssets:
         paths = {item.output_path.relative_to(run_config.assets_dir) for item in plan.items[:-1]}
         assert plan.bundle == "core-brand"
         assert "logo/logo-1024.png" in {str(path) for path in paths}
-        assert "icon/icon-512.png" in {str(path) for path in paths}
-        assert "favicon/favicon.ico" in {str(path) for path in paths}
-        assert "social/social-card-1200x630.png" in {str(path) for path in paths}
+        assert "icon/icon-1024.png" in {str(path) for path in paths}
+        assert "web-seo/favicon/favicon.ico" in {str(path) for path in paths}
+        assert "web-seo/og-image-1200x630.png" in {str(path) for path in paths}
         source_keys = {item.key: item.source_key for item in plan.items}
         assert source_keys["logo"] == "logo-mark"
         assert source_keys["icon"] == "logo-mark"
-        assert source_keys["social-card"] == "logo-mark"
+        assert source_keys["web-seo-og-image"] == "logo-mark"
         strategies = {item.key: item.strategy for item in plan.items}
         assert strategies["icon"] == "generated_from_logo_reference"
-        assert strategies["favicon-16"] == "resized_from_icon"
-        assert strategies["social-card"] == "generated_from_logo_reference"
+        assert strategies["web-seo-favicon-16"] == "resized_from_icon"
+        assert strategies["web-seo-og-image"] == "generated_from_logo_reference"
 
     def test_disabled_assets_are_skipped(self, tmp_path):
         config = Config(
