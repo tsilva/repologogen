@@ -203,6 +203,7 @@ def resolve_run_config(
 
 def _plan_targeted_core_brand(run_config: ResolvedRunConfig) -> AssetPlan:
     items: list[AssetPlanItem] = []
+    nextjs_dir = run_config.project_path / "repologogen-next"
 
     if run_config.assets["logo"].enabled:
         items.append(
@@ -338,6 +339,24 @@ def _plan_targeted_core_brand(run_config: ResolvedRunConfig) -> AssetPlan:
                 target="web-seo",
                 strategy="written_metadata",
             )
+        )
+        items.extend(
+            [
+                AssetPlanItem(
+                    "web-seo-nextjs-metadata-json",
+                    "metadata",
+                    nextjs_dir / "web-seo-metadata.json",
+                    target="web-seo",
+                    strategy="written_metadata",
+                ),
+                AssetPlanItem(
+                    "web-seo-nextjs-metadata-ts",
+                    "metadata",
+                    nextjs_dir / "web-seo-metadata.ts",
+                    target="web-seo",
+                    strategy="written_metadata",
+                ),
+            ]
         )
 
     if "google-play" in run_config.targets and run_config.assets["icon"].enabled:

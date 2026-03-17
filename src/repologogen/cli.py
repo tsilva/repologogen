@@ -389,12 +389,16 @@ def _build_manifest(
     for item in plan.items:
         if item.kind == "manifest":
             continue
+        try:
+            output_path = item.output_path.relative_to(root)
+        except ValueError:
+            output_path = item.output_path.relative_to(run_config.project_path)
         entry: dict[str, Any] = {
             "key": item.key,
             "kind": item.kind,
             "target": item.target,
             "strategy": item.strategy,
-            "path": str(item.output_path.relative_to(root)),
+            "path": str(output_path),
         }
         if item.width and item.height:
             entry["size"] = [item.width, item.height]
@@ -513,6 +517,120 @@ def _write_web_target_manifest(
         ),
         icons=icons,
     )
+
+
+def _to_nextjs_public_url(project_root: Path, path: Path) -> str:
+    relative = path.relative_to(project_root)
+    if relative.parts and relative.parts[0] == "public":
+        relative = Path(*relative.parts[1:])
+    return "/" + relative.as_posix()
+
+
+def _build_nextjs_metadata_payload(
+    run_config: Any,
+    metadata: dict[str, Any],
+    plan: AssetPlan,
+    project_description: str,
+) -> dict[str, Any]:
+    items = {item.key: item for item in plan.items}
+    title = str(metadata.get("title") or run_config.project_name)
+    description = str(
+        metadata.get("short_description") or project_description or run_config.project_name
+    )
+    og_path = _to_nextjs_public_url(
+        run_config.project_path,
+        items["web-seo-og-image"].output_path,
+    )
+    apple_path = _to_nextjs_public_url(
+        run_config.project_path,
+        items["web-seo-apple-touch-icon"].output_path,
+    )
+    icon32_path = _to_nextjs_public_url(
+        run_config.project_path,
+        items["web-seo-favicon-32"].output_path,
+    )
+    icon48_path = _to_nextjs_public_url(
+        run_config.project_path,
+        items["web-seo-favicon-48"].output_path,
+    )
+    favicon_ico_path = _to_nextjs_public_url(
+        run_config.project_path,
+        items["web-seo-favicon-ico"].output_path,
+    )
+    manifest_path = _to_nextjs_public_url(
+        run_config.project_path,
+        items["web-seo-site-webmanifest"].output_path,
+    )
+
+    return {
+        "title": title,
+        "description": description,
+        "keywords": list(metadata.get("keywords") or []),
+        "openGraph": {
+            "title": title,
+            "description": description,
+            "images": [
+                {
+                    "url": og_path,
+                    "width": 1200,
+                    "height": 630,
+                    "alt": f"{run_config.project_name} brand card",
+                }
+            ],
+        },
+        "twitter": {
+            "card": "summary_large_image",
+            "title": title,
+            "description": description,
+            "images": [og_path],
+        },
+        "icons": {
+            "icon": [
+                {"url": icon32_path, "sizes": "32x32", "type": "image/png"},
+                {"url": icon48_path, "sizes": "48x48", "type": "image/png"},
+            ],
+            "apple": [{"url": apple_path, "sizes": "180x180", "type": "image/png"}],
+            "shortcut": [favicon_ico_path],
+        },
+        "manifest": manifest_path,
+    }
+
+
+def _write_nextjs_metadata(
+    run_config: Any,
+    metadata: dict[str, Any],
+    plan: AssetPlan,
+    project_description: str,
+) -> None:
+    json_item = next(
+        (item for item in plan.items if item.key == "web-seo-nextjs-metadata-json"),
+        None,
+    )
+    ts_item = next(
+        (item for item in plan.items if item.key == "web-seo-nextjs-metadata-ts"),
+        None,
+    )
+    if json_item is None or ts_item is None:
+        return
+
+    payload = _build_nextjs_metadata_payload(run_config, metadata, plan, project_description)
+    json_item.output_path.parent.mkdir(parents=True, exist_ok=True)
+    json_item.output_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+    payload_json = json.dumps(payload, indent=2)
+    ts_contents = (
+        'import type { Metadata } from "next";\n\n'
+        f"const payload = {payload_json} as const;\n\n"
+        "export function createMetadata(metadataBase: URL): Metadata {\n"
+        "  return {\n"
+        "    metadataBase,\n"
+        "    ...payload,\n"
+        "  };\n"
+        "}\n\n"
+        "export default createMetadata;\n"
+    )
+    ts_item.output_path.parent.mkdir(parents=True, exist_ok=True)
+    ts_item.output_path.write_text(ts_contents, encoding="utf-8")
 
 
 def _compose_marketing_fallback(
@@ -690,6 +808,7 @@ def _generate_core_brand(
 
         if run_config.targets:
             _write_web_target_manifest(run_config, plan, metadata, project_description)
+            _write_nextjs_metadata(run_config, metadata, plan, project_description)
 
     manifest = _build_manifest(run_config, plan, metadata)
     run_config.manifest_path.parent.mkdir(parents=True, exist_ok=True)

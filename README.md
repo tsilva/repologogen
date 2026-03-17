@@ -84,6 +84,9 @@ repologogen
 # Generate platform-ready assets from the base logo
 repologogen --bundle core-brand --target web-seo --target google-play
 
+# Generate Next.js-ready SEO assets
+repologogen --bundle core-brand --target web-seo --assets-dir public/brand
+
 # Target a specific project
 repologogen /path/to/project --bundle core-brand --target apple-store
 
@@ -244,6 +247,28 @@ The manifest includes asset paths plus reusable metadata fields:
 - `social_title`
 - `social_description`
 - `keywords`
+
+When `web-seo` is selected, repologogen also writes Next.js-ready metadata helpers:
+
+```text
+repologogen-next/
+├── web-seo-metadata.json
+└── web-seo-metadata.ts
+```
+
+The generated TypeScript helper exports `createMetadata(metadataBase: URL)` so a Next.js app can wire it directly into `app/layout.ts`:
+
+```ts
+import { createMetadata } from "@/repologogen-next/web-seo-metadata";
+
+export const metadata = createMetadata(new URL(process.env.NEXT_PUBLIC_SITE_URL!));
+```
+
+For the smoothest Next.js setup, generate static assets into `public/brand`:
+
+```bash
+repologogen --bundle core-brand --target web-seo --assets-dir public/brand
+```
 
 ### Custom Prompt Templates
 

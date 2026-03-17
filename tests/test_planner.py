@@ -86,12 +86,13 @@ class TestPlanAssets:
         )
         plan = plan_assets(run_config)
 
-        paths = {item.output_path.relative_to(run_config.assets_dir) for item in plan.items[:-1]}
+        paths = {str(item.output_path.relative_to(tmp_path)) for item in plan.items[:-1]}
         assert plan.bundle == "core-brand"
-        assert "logo/logo-1024.png" in {str(path) for path in paths}
-        assert "icon/icon-1024.png" in {str(path) for path in paths}
-        assert "web-seo/favicon/favicon.ico" in {str(path) for path in paths}
-        assert "web-seo/og-image-1200x630.png" in {str(path) for path in paths}
+        assert "repologogen-assets/logo/logo-1024.png" in paths
+        assert "repologogen-assets/icon/icon-1024.png" in paths
+        assert "repologogen-assets/web-seo/favicon/favicon.ico" in paths
+        assert "repologogen-assets/web-seo/og-image-1200x630.png" in paths
+        assert "repologogen-next/web-seo-metadata.ts" in paths
         source_keys = {item.key: item.source_key for item in plan.items}
         assert source_keys["logo"] == "logo-mark"
         assert source_keys["icon"] == "logo-mark"
@@ -125,15 +126,17 @@ class TestPlanAssets:
         )
 
         plan = plan_assets(run_config)
-        paths = {str(item.output_path.relative_to(run_config.assets_dir)) for item in plan.items}
+        paths = {str(item.output_path.relative_to(tmp_path)) for item in plan.items}
         strategies = {item.key: item.strategy for item in plan.items}
 
-        assert "logo/logo-1024.png" in paths
-        assert "icon/icon-1024.png" in paths
-        assert "web-seo/og-image-1200x630.png" in paths
-        assert "web-seo/site.webmanifest" in paths
-        assert "google-play/feature-graphic-1024x500.png" in paths
-        assert "apple-store/app-store-icon-1024.png" in paths
+        assert "repologogen-assets/logo/logo-1024.png" in paths
+        assert "repologogen-assets/icon/icon-1024.png" in paths
+        assert "repologogen-assets/web-seo/og-image-1200x630.png" in paths
+        assert "repologogen-assets/web-seo/site.webmanifest" in paths
+        assert "repologogen-next/web-seo-metadata.json" in paths
+        assert "repologogen-next/web-seo-metadata.ts" in paths
+        assert "repologogen-assets/google-play/feature-graphic-1024x500.png" in paths
+        assert "repologogen-assets/apple-store/app-store-icon-1024.png" in paths
         assert strategies["web-seo-og-image"] == "generated_from_logo_reference"
         assert strategies["web-seo-android-chrome-512"] == "resized_from_icon"
         assert strategies["web-seo-site-webmanifest"] == "written_metadata"

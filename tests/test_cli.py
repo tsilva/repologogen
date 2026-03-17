@@ -184,14 +184,21 @@ class TestRunGeneration:
 
         assert result == 0
         root = tmp_path / "repologogen-assets"
+        next_root = tmp_path / "repologogen-next"
         assert (root / "logo" / "logo-1024.png").exists()
         assert (root / "icon" / "icon-1024.png").exists()
         assert (root / "web-seo" / "og-image-1200x630.png").exists()
         assert (root / "google-play" / "feature-graphic-1024x500.png").exists()
         assert (root / "apple-store" / "app-store-icon-1024.png").exists()
         assert (root / "web-seo" / "site.webmanifest").exists()
+        assert (next_root / "web-seo-metadata.json").exists()
+        assert (next_root / "web-seo-metadata.ts").exists()
 
         manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
+        next_metadata = json.loads(
+            (next_root / "web-seo-metadata.json").read_text(encoding="utf-8")
+        )
+        next_module = (next_root / "web-seo-metadata.ts").read_text(encoding="utf-8")
         assert manifest["targets"] == ["web-seo", "google-play", "apple-store"]
         assert len(DummyGenerator.prompts) == 4
         assert DummyGenerator.prompts[2]["aspect_ratio"] == "16:9"
@@ -199,6 +206,12 @@ class TestRunGeneration:
         assert all(
             len(prompt["reference_images"]) == 1 for prompt in DummyGenerator.prompts[1:]
         )
+        assert (
+            next_metadata["openGraph"]["images"][0]["url"]
+            == "/repologogen-assets/web-seo/og-image-1200x630.png"
+        )
+        assert 'import type { Metadata } from "next";' in next_module
+        assert "createMetadata" in next_module
 
     def test_targeted_core_brand_falls_back_for_marketing_graphics(self, tmp_path, monkeypatch):
         _set_test_console(monkeypatch)
