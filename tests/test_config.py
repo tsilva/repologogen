@@ -451,8 +451,8 @@ class TestGetApiKey:
 
         assert get_api_key(tmp_path) == "env-key"
 
-    def test_reads_project_config_when_env_missing(self, tmp_path, monkeypatch):
+    def test_returns_none_when_env_missing(self, tmp_path, monkeypatch):
         monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
         (tmp_path / ".config.yaml").write_text("openrouter_api_key: project-key\n")
 
-        assert get_api_key(tmp_path) == "project-key"
+        assert get_api_key(tmp_path) is None

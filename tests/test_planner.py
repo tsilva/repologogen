@@ -15,6 +15,7 @@ class TestResolveRunConfig:
         assert resolved.output_path == tmp_path / "logo.png"
         assert resolved.assets["logo"].style == "bold, cinematic, sensory-rich brand icon"
         assert resolved.assets["logo"].include_repo_name is True
+        assert resolved.manifest_path == tmp_path / "repologogen-assets" / "manifest.json"
 
     def test_asset_overrides_inherit_from_globals(self, tmp_path):
         config = Config(
@@ -66,6 +67,17 @@ class TestResolveRunConfig:
         assert resolved.assets["icon"].include_repo_name is False
         assert resolved.assets["favicon"].include_repo_name is False
 
+    def test_assets_dir_override_moves_manifest_with_it(self, tmp_path):
+        resolved = resolve_run_config(
+            Config(bundle="core-brand"),
+            tmp_path,
+            "python",
+            cli_overrides={"bundle": "core-brand", "assets_dir": "public/brand"},
+        )
+
+        assert resolved.assets_dir == tmp_path / "public" / "brand"
+        assert resolved.manifest_path == tmp_path / "public" / "brand" / "manifest.json"
+
 
 class TestPlanAssets:
     """Test bundle output planning."""
@@ -93,7 +105,7 @@ class TestPlanAssets:
         assert "repologogen-assets/icon/icon-1024.png" in paths
         assert "repologogen-assets/web-seo/favicon/favicon.ico" in paths
         assert "repologogen-assets/web-seo/og-image-1200x630.png" in paths
-        assert "repologogen-next/web-seo-metadata.ts" in paths
+        assert "web-seo-metadata.ts" in paths
         source_keys = {item.key: item.source_key for item in plan.items}
         assert source_keys["logo"] == "logo-mark"
         assert source_keys["icon"] == "logo-mark"
@@ -134,8 +146,8 @@ class TestPlanAssets:
         assert "repologogen-assets/icon/icon-1024.png" in paths
         assert "repologogen-assets/web-seo/og-image-1200x630.png" in paths
         assert "repologogen-assets/web-seo/site.webmanifest" in paths
-        assert "repologogen-next/web-seo-metadata.json" in paths
-        assert "repologogen-next/web-seo-metadata.ts" in paths
+        assert "web-seo-metadata.json" in paths
+        assert "web-seo-metadata.ts" in paths
         assert "repologogen-assets/google-play/feature-graphic-1024x500.png" in paths
         assert "repologogen-assets/apple-store/app-store-icon-1024.png" in paths
         assert strategies["web-seo-og-image"] == "generated_from_logo_reference"

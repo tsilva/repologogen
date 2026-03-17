@@ -44,8 +44,7 @@ class ImageGenerator:
         self.api_key = api_key or get_api_key(project_path)
         if not self.api_key:
             raise ImageGeneratorError(
-                "API key required. Set OPENROUTER_API_KEY environment variable or "
-                "configure .config.yaml in the project root"
+                "API key required. Set OPENROUTER_API_KEY in the environment."
             )
 
         self.base_url = base_url.rstrip("/")

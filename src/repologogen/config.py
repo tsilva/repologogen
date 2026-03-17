@@ -1,4 +1,4 @@
-"""Configuration management for repologogen using YAML."""
+"""Default configuration and optional config-file utilities for repologogen."""
 
 from __future__ import annotations
 
@@ -340,23 +340,6 @@ def load_merged_config(
 
 
 def get_api_key(project_path: Path | None = None) -> str | None:
-    """Get OpenRouter API key from environment or project config."""
-    api_key = os.getenv("OPENROUTER_API_KEY")
-    if api_key:
-        return api_key
-
-    if project_path is None:
-        return None
-
-    project_config_path = project_path / ".config.yaml"
-    if project_config_path.exists():
-        try:
-            with open(project_config_path, encoding="utf-8") as handle:
-                config = yaml.safe_load(handle) or {}
-        except (yaml.YAMLError, OSError):
-            return None
-
-        api_key = config.get("openrouter_api_key")
-        return api_key if isinstance(api_key, str) else None
-
-    return None
+    """Get OpenRouter API key from environment only."""
+    del project_path
+    return os.getenv("OPENROUTER_API_KEY")

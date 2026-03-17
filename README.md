@@ -31,7 +31,7 @@
 - **Platform Packs** — Add Web SEO, Google Play, and Apple Store assets with repeatable `--target` flags
 - **Reference-Guided Marketing Art** — Generate text-bearing graphics from the main logo as a visual reference instead of stretching/resizing them
 - **Project Detection** — Recognizes Python, Node.js, Rust, Go, Java, .NET, Ruby, PHP, and C++ projects
-- **Project-Scoped Config** — Project `.config.yaml` > Built-in defaults
+- **CLI-Only Defaults** — Built-in defaults plus command-line overrides, with a short `--web` workflow for common Next.js-style branding
 - **Custom Prompts** — Full template system with variables for style, colors, metaphors, and more
 - **PNG Compression** — Optimized file size with configurable quality
 - **Dry Run Mode** — Preview the generated prompt before spending API credits
@@ -52,14 +52,10 @@ pip install -e .
 
 ## 🚀 Quick Start
 
-**1. Set your API key** (pick one):
+**1. Set your API key**:
 
 ```bash
-# Option A: Environment variable
 export OPENROUTER_API_KEY="your-key"
-
-# Option B: Project config
-printf 'openrouter_api_key: your-key\n' > .config.yaml
 ```
 
 **2. Generate:**
@@ -68,8 +64,11 @@ printf 'openrouter_api_key: your-key\n' > .config.yaml
 # Logo only
 repologogen
 
-# Core brand pack plus platform assets
-repologogen --bundle core-brand --target web-seo --target google-play --target apple-store
+# Shortest web brand pack flow
+repologogen --web
+
+# Core brand pack plus multiple platform assets
+repologogen --target web-seo --target google-play --target apple-store
 ```
 
 **3. Done.** Your `logo.png` or `repologogen-assets/` pack is ready.
@@ -81,13 +80,13 @@ repologogen --bundle core-brand --target web-seo --target google-play --target a
 repologogen
 
 # Generate platform-ready assets from the base logo
-repologogen --bundle core-brand --target web-seo --target google-play
+repologogen --target web-seo --target google-play
 
-# Generate Next.js-ready SEO assets
-repologogen --bundle core-brand --target web-seo --assets-dir public/brand
+# Generate Next.js-ready SEO assets with the shortest command
+repologogen --web
 
 # Target a specific project
-repologogen /path/to/project --bundle core-brand --target apple-store
+repologogen /path/to/project --target apple-store
 
 # Custom style across generated assets
 repologogen -s "pixel art"
@@ -96,7 +95,7 @@ repologogen -s "pixel art"
 repologogen -o assets/logo.png
 
 # Custom asset directory for the core brand bundle
-repologogen --bundle core-brand --target web-seo --assets-dir branding
+repologogen --target web-seo --assets-dir branding
 
 # Override project name
 repologogen -n "My Project"
@@ -113,14 +112,24 @@ repologogen -v
 | Flag | Description |
 |------|-------------|
 | `--bundle` | Select `logo` or target-driven `core-brand` generation mode |
-| `--target` | Required with `core-brand`; add `web-seo`, `google-play`, and/or `apple-store` |
+| `--target` | Add `web-seo`, `google-play`, and/or `apple-store`; any target implies `core-brand` |
+| `--web` | Shortest web workflow: implies `core-brand`, `web-seo`, and `public/brand` |
 | `-s`, `--style` | Override logo style |
 | `-o`, `--output` | Override output path for the `logo` bundle |
 | `--assets-dir` | Override output directory for bundle assets |
-| `--manifest` | Override manifest path for bundle assets |
+| `--manifest` | Override manifest path (defaults to `<assets-dir>/manifest.json`) |
 | `-n`, `--name` | Override project name |
 | `-m`, `--model` | Override AI model |
-| `-c`, `--config` | Path to custom config file |
+| `--text-model` | Override text model for README digestion and prompt refinement |
+| `--size` | Override image size (`1K`, `2K`, etc.) |
+| `--visual-metaphor` | Override the visual metaphor or use `none` for abstract |
+| `--icon-colors` | Override palette as a comma-separated list or descriptive string |
+| `--instructions` | Append extra instructions to the prompt |
+| `--key-color` | Override chromakey background color |
+| `--tolerance` | Override chromakey edge tolerance |
+| `--trim-margin` | Override transparent trim margin percentage |
+| `--quality` | Override PNG compression quality |
+| `--no-metadata` | Skip generated metadata outputs |
 | `--no-trim` | Skip transparent padding trim |
 | `--no-compress` | Skip PNG compression |
 | `--no-refine` | Skip prompt refinement |
@@ -128,51 +137,16 @@ repologogen -v
 | `--var KEY=VALUE` | Set template variable (repeatable) |
 | `-v`, `--verbose` | Enable verbose output |
 
-## ⚙️ Configuration
+## ⚙️ Defaults
 
-Configuration loads in priority order:
+repologogen now runs with built-in defaults plus command-line overrides only. There are no project or user settings files in the runtime path.
 
-```
-.config.yaml (project) > built-in defaults
-```
-
-**Example `.config.yaml`:**
-
-```yaml
-model: google/gemini-3-pro-image-preview
-size: 1K
-bundle: core-brand
-targets:
-  - web-seo
-  - google-play
-assets_dir: branding
-style: "SNES 16-bit pixel art"
-icon_colors:
-  - "#58a6ff"
-  - "#d29922"
-  - "#a371f7"
-key_color: "#00FF00"
-tolerance: 70
- output_path: logo.png
-openrouter_api_key: your-key
-include_repo_name: true
-trim: true
-trim_margin: 5
-compress: true
-compress_quality: 80
-
-assets:
-  icon:
-    style: "flat badge"
-  social_card:
-    enabled: true
-```
-
-### All Options
+### Built-In Defaults
 
 | Option | Default | Description |
 |--------|---------|-------------|
 | `model` | `google/gemini-3-pro-image-preview` | AI model for image generation |
+| `text_model` | `google/gemini-3-flash-preview` | LLM used for README digestion and prompt refinement |
 | `size` | `1K` | Image size (`1K`, `2K`, etc.) |
 | `style` | `bold, cinematic, sensory-rich brand icon` | Logo style descriptor |
 | `visual_metaphor` | `null` | Custom visual metaphor (`null` = auto-detect, `none` = abstract) |
@@ -190,23 +164,7 @@ assets:
 | `bundle` | `logo` | Default bundle to generate (`logo` or `core-brand`) |
 | `targets` | `[]` | Platform packs to add to the `core-brand` bundle |
 | `assets_dir` | `repologogen-assets` | Output directory for bundle assets |
-| `manifest_path` | `repologogen-assets/manifest.json` | Manifest path for the bundle output |
-
-### Asset Override Config
-
-Top-level creative settings remain the defaults for every generated asset. Use `assets.*` blocks only when a specific asset needs an override.
-
-Supported override keys per asset:
-
-- `enabled`
-- `style`
-- `visual_metaphor`
-- `include_repo_name`
-- `icon_colors`
-- `additional_instructions`
-- `model`
-- `size`
-- `prompt_template`
+| `manifest_path` | `<assets-dir>/manifest.json` | Manifest path for the bundle output |
 
 The primary `logo` asset always includes the project/repo name so README and top-level branding stay identifiable. `icon` and `favicon` stay text-free in the `core-brand` bundle.
 
@@ -253,15 +211,14 @@ The manifest includes asset paths plus reusable metadata fields:
 When `web-seo` is selected, repologogen also writes Next.js-ready metadata helpers:
 
 ```text
-repologogen-next/
-├── web-seo-metadata.json
-└── web-seo-metadata.ts
+web-seo-metadata.json
+web-seo-metadata.ts
 ```
 
 The generated TypeScript helper exports `createMetadata(metadataBase: URL)` so a Next.js app can wire it directly into `app/layout.ts`:
 
 ```ts
-import { createMetadata } from "@/repologogen-next/web-seo-metadata";
+import { createMetadata } from "@/web-seo-metadata";
 
 export const metadata = createMetadata(new URL(process.env.NEXT_PUBLIC_SITE_URL!));
 ```
@@ -269,15 +226,28 @@ export const metadata = createMetadata(new URL(process.env.NEXT_PUBLIC_SITE_URL!
 For the smoothest Next.js setup, generate static assets into `public/brand`:
 
 ```bash
-repologogen --bundle core-brand --target web-seo --assets-dir public/brand
+repologogen --web
 ```
 
 ### Custom Prompt Templates
 
 Override the default prompt with your own template using any of these variables:
 
-```yaml
-prompt_template: >-
+```text
+Create a {STYLE} icon for {PROJECT_NAME}.
+Use colors: {ICON_COLORS}. Background: {KEY_COLOR}.
+{TEXT_INSTRUCTIONS}
+```
+
+Pass template variables with:
+
+```bash
+repologogen --var KEY=VALUE --var OTHER_KEY=OTHER_VALUE
+```
+
+Example template content:
+
+```text
   Create a {STYLE} icon for {PROJECT_NAME}.
   Use colors: {ICON_COLORS}. Background: {KEY_COLOR}.
   {TEXT_INSTRUCTIONS}
@@ -293,7 +263,7 @@ Additional variables can be passed via `--var KEY=VALUE` on the CLI.
 cli.py → config.py → detector.py → planner.py → generator.py → processor.py
 ```
 
-1. **Config Loading** — Merges bundled defaults and project config with JSON Schema validation
+1. **Default Resolution** — Starts from bundled defaults, then applies command-line overrides and shorthand presets
 2. **Project Detection** — Matches file patterns (`pyproject.toml` → Python, `package.json` → Node.js, etc.)
 3. **Planning** — Resolves the selected bundle, per-asset overrides, and output paths
 4. **Image Generation** — Calls OpenRouter API (OpenAI-compatible) for a canonical transparent brand mark

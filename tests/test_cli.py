@@ -106,6 +106,19 @@ class TestRunGeneration:
 
         assert result == 1
 
+    def test_targets_imply_core_brand(self, tmp_path, monkeypatch):
+        _set_test_console(monkeypatch)
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='demo'\n")
+        (tmp_path / "README.md").write_text("# Demo\nA project.")
+
+        result = cli.run_generation(
+            project_path=tmp_path,
+            targets=["web-seo"],
+            dry_run=True,
+        )
+
+        assert result == 0
+
     def test_core_brand_bundle_writes_assets_and_manifest(self, tmp_path, monkeypatch):
         _set_test_console(monkeypatch)
         DummyGenerator.prompts = []
@@ -186,21 +199,20 @@ class TestRunGeneration:
 
         assert result == 0
         root = tmp_path / "repologogen-assets"
-        next_root = tmp_path / "repologogen-next"
         assert (root / "logo" / "logo-1024.png").exists()
         assert (root / "icon" / "icon-1024.png").exists()
         assert (root / "web-seo" / "og-image-1200x630.png").exists()
         assert (root / "google-play" / "feature-graphic-1024x500.png").exists()
         assert (root / "apple-store" / "app-store-icon-1024.png").exists()
         assert (root / "web-seo" / "site.webmanifest").exists()
-        assert (next_root / "web-seo-metadata.json").exists()
-        assert (next_root / "web-seo-metadata.ts").exists()
+        assert (tmp_path / "web-seo-metadata.json").exists()
+        assert (tmp_path / "web-seo-metadata.ts").exists()
 
         manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
         next_metadata = json.loads(
-            (next_root / "web-seo-metadata.json").read_text(encoding="utf-8")
+            (tmp_path / "web-seo-metadata.json").read_text(encoding="utf-8")
         )
-        next_module = (next_root / "web-seo-metadata.ts").read_text(encoding="utf-8")
+        next_module = (tmp_path / "web-seo-metadata.ts").read_text(encoding="utf-8")
         assert manifest["targets"] == ["web-seo", "google-play", "apple-store"]
         assert len(DummyGenerator.prompts) == 4
         assert DummyGenerator.prompts[2]["aspect_ratio"] == "16:9"
@@ -213,7 +225,39 @@ class TestRunGeneration:
             == "/repologogen-assets/web-seo/og-image-1200x630.png"
         )
         assert 'import type { Metadata } from "next";' in next_module
+        assert 'const payload: Omit<Metadata, "metadataBase">' in next_module
         assert "createMetadata" in next_module
+
+    def test_web_preset_uses_public_brand_and_local_manifest(self, tmp_path, monkeypatch):
+        _set_test_console(monkeypatch)
+        DummyGenerator.prompts = []
+        monkeypatch.setattr(cli, "ImageGenerator", DummyGenerator)
+        monkeypatch.setattr(cli, "get_api_key", lambda project_path=None: None)
+        monkeypatch.setattr(cli, "digest_readme", lambda *args, **kwargs: "Generate brand assets.")
+        monkeypatch.setattr(
+            cli,
+            "extract_repo_metadata",
+            lambda *args, **kwargs: {
+                "title": "Demo",
+                "short_description": "Generate brand assets.",
+                "social_title": "Demo brand assets",
+                "social_description": "Generate brand assets.",
+                "keywords": ["demo", "brand"],
+            },
+        )
+
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='demo'\n")
+        (tmp_path / "README.md").write_text("# Demo\nA project.")
+
+        result = cli.run_generation(
+            project_path=tmp_path,
+            web=True,
+        )
+
+        assert result == 0
+        assert (tmp_path / "public" / "brand" / "manifest.json").exists()
+        assert (tmp_path / "public" / "brand" / "web-seo" / "og-image-1200x630.png").exists()
+        assert (tmp_path / "web-seo-metadata.ts").exists()
 
     def test_targeted_core_brand_falls_back_for_marketing_graphics(self, tmp_path, monkeypatch):
         _set_test_console(monkeypatch)

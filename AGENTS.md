@@ -19,14 +19,14 @@ CLI tool that generates professional logos with transparent backgrounds via Open
 **Module pipeline**: `cli.py` → `config.py` → `detector.py` → `generator.py` → `processor.py`
 
 - **cli.py** - Argparse entry point, orchestrates the generation workflow
-- **config.py** - YAML config loading with JSON Schema validation, deep merge, env var expansion
+- **config.py** - Built-in defaults and config-related helpers used by the planner/runtime
 - **detector.py** - Project type detection from file patterns (pyproject.toml → python, etc.)
 - **generator.py** - OpenRouter API client (OpenAI-compatible), prompt template builder
 - **processor.py** - Pillow-based image processing: chromakey→transparent, trim, compress
 
-**Config priority**: project `.config.yaml` > built-in defaults
+**Runtime config**: built-in defaults + command-line overrides only
 
-**API key sources** (checked in order): `OPENROUTER_API_KEY` env var → project `.config.yaml`
+**API key sources** (checked in order): `OPENROUTER_API_KEY` env var
 
 ## Code Style
 

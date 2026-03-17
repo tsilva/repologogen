@@ -174,8 +174,11 @@ def resolve_run_config(
         project_path,
         project_name,
     )
-    manifest_path = _resolve_path(
-        str(cli.get("manifest_path") or config.manifest_path), project_path, project_name
+    manifest_override = cli.get("manifest_path")
+    manifest_path = (
+        _resolve_path(str(manifest_override), project_path, project_name)
+        if manifest_override
+        else assets_dir / "manifest.json"
     )
 
     assets = {
@@ -207,7 +210,6 @@ def resolve_run_config(
 
 def _plan_targeted_core_brand(run_config: ResolvedRunConfig) -> AssetPlan:
     items: list[AssetPlanItem] = []
-    nextjs_dir = run_config.project_path / "repologogen-next"
 
     if run_config.assets["logo"].enabled:
         items.append(
@@ -349,14 +351,14 @@ def _plan_targeted_core_brand(run_config: ResolvedRunConfig) -> AssetPlan:
                 AssetPlanItem(
                     "web-seo-nextjs-metadata-json",
                     "metadata",
-                    nextjs_dir / "web-seo-metadata.json",
+                    run_config.project_path / "web-seo-metadata.json",
                     target="web-seo",
                     strategy="written_metadata",
                 ),
                 AssetPlanItem(
                     "web-seo-nextjs-metadata-ts",
                     "metadata",
-                    nextjs_dir / "web-seo-metadata.ts",
+                    run_config.project_path / "web-seo-metadata.ts",
                     target="web-seo",
                     strategy="written_metadata",
                 ),

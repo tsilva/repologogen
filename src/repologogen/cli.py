@@ -14,12 +14,7 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
-from repologogen.config import (
-    TARGET_NAMES,
-    ConfigValidationError,
-    get_api_key,
-    load_merged_config,
-)
+from repologogen.config import TARGET_NAMES, Config, MetadataConfig, get_api_key
 from repologogen.detector import detect_project, find_readme
 from repologogen.generator import (
     ImageGenerator,
@@ -67,18 +62,21 @@ def _parse_template_vars(values: list[str]) -> dict[str, str]:
     return template_vars
 
 
-def _load_config(
-    project_path: Path,
-    config_path: Path | None,
-) -> Any:
-    if config_path:
-        return load_merged_config(
-            project_config_path=config_path,
-            require_project_config=True,
-            project_root=project_path,
-        )
+def _parse_icon_colors(value: str | None) -> list[str] | str | None:
+    if value is None:
+        return None
+    parts = [part.strip() for part in value.split(",") if part.strip()]
+    return parts if len(parts) > 1 else value
 
-    return load_merged_config(project_root=project_path)
+
+def _unique_targets(values: list[str] | None) -> list[str]:
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for value in values or []:
+        if value not in seen:
+            seen.add(value)
+            ordered.append(value)
+    return ordered
 
 
 def _get_project_description(
@@ -608,7 +606,7 @@ def _write_nextjs_metadata(
     payload_json = json.dumps(payload, indent=2)
     ts_contents = (
         'import type { Metadata } from "next";\n\n'
-        f"const payload = {payload_json} as const;\n\n"
+        f'const payload: Omit<Metadata, "metadataBase"> = {payload_json};\n\n'
         "export function createMetadata(metadataBase: URL): Metadata {\n"
         "  return {\n"
         "    metadataBase,\n"
@@ -810,32 +808,73 @@ def _generate_core_brand(
 
 def run_generation(
     project_path: Path,
-    config_path: Path | None = None,
     *,
     verbose: bool = False,
     dry_run: bool = False,
     template_vars: dict[str, str] | None = None,
     bundle: str | None = None,
     targets: list[str] | None = None,
+    web: bool = False,
     assets_dir: str | None = None,
     manifest_path: str | None = None,
     output_path: str | None = None,
     style: str | None = None,
     model: str | None = None,
+    text_model: str | None = None,
+    size: str | None = None,
+    visual_metaphor: str | None = None,
+    icon_colors: list[str] | str | None = None,
+    additional_instructions: str | None = None,
+    key_color: str | None = None,
+    tolerance: int | None = None,
+    trim_margin: int | None = None,
+    compress_quality: int | None = None,
+    no_metadata: bool = False,
     project_name_override: str | None = None,
     no_refine: bool = False,
     no_trim: bool = False,
     no_compress: bool = False,
 ) -> int:
     """Run the configured generation workflow."""
-    try:
-        with console.status("[bold green]Loading configuration..."):
-            config = _load_config(project_path, config_path)
-    except ConfigValidationError as error:
-        console.print(f"[bold red]Configuration Error:[/bold red] {error}")
-        if error.file_path:
-            console.print(f"[dim]File: {error.file_path}[/dim]")
-        return 1
+    resolved_targets = _unique_targets(targets)
+    resolved_bundle = bundle
+    resolved_assets_dir = assets_dir
+
+    if web:
+        if bundle == "logo":
+            console.print("[bold red]Error:[/bold red] --web cannot be combined with --bundle logo")
+            return 1
+        resolved_bundle = "core-brand"
+        resolved_targets = _unique_targets(["web-seo", *resolved_targets])
+        if resolved_assets_dir is None:
+            resolved_assets_dir = "public/brand"
+
+    if resolved_bundle is None and resolved_targets:
+        resolved_bundle = "core-brand"
+
+    defaults = Config()
+    with console.status("[bold green]Loading defaults..."):
+        config = Config(
+            model=model or defaults.model,
+            text_model=text_model or defaults.text_model,
+            size=size or defaults.size,
+            style=style or defaults.style,
+            visual_metaphor=visual_metaphor,
+            icon_colors=icon_colors if icon_colors is not None else defaults.icon_colors,
+            additional_instructions=additional_instructions or defaults.additional_instructions,
+            key_color=key_color or defaults.key_color,
+            tolerance=tolerance if tolerance is not None else defaults.tolerance,
+            output_path=output_path or defaults.output_path,
+            compress_quality=(
+                compress_quality
+                if compress_quality is not None
+                else defaults.compress_quality
+            ),
+            trim_margin=trim_margin if trim_margin is not None else defaults.trim_margin,
+            assets_dir=resolved_assets_dir or defaults.assets_dir,
+            metadata=MetadataConfig(enabled=not no_metadata),
+            meta={"sources": ["built_in_defaults", "cli_args"]},
+        )
 
     project_info = detect_project(project_path)
     project_type = cast(str, project_info["type"])
@@ -846,13 +885,9 @@ def run_generation(
         )
 
     cli_overrides = {
-        "bundle": bundle,
-        "targets": targets,
-        "assets_dir": assets_dir,
+        "bundle": resolved_bundle,
+        "targets": resolved_targets,
         "manifest_path": manifest_path,
-        "output_path": output_path,
-        "style": style,
-        "model": model,
         "no_refine": no_refine,
         "no_trim": no_trim,
         "no_compress": no_compress,
@@ -898,9 +933,7 @@ def run_generation(
         generator = ImageGenerator(project_path=project_path)
     except ImageGeneratorError as error:
         console.print(f"[bold red]Error:[/bold red] {error}")
-        console.print(
-            "[dim]Set OPENROUTER_API_KEY in the environment or in the project's .config.yaml[/dim]"
-        )
+        console.print("[dim]Set OPENROUTER_API_KEY in the environment[/dim]")
         return 1
 
     try:
@@ -940,7 +973,6 @@ def main() -> int:
     parser.add_argument(
         "path", nargs="?", default=".", help="Project directory (default: current directory)"
     )
-    parser.add_argument("-c", "--config", help="Path to custom configuration file")
     parser.add_argument(
         "--bundle",
         choices=["logo", "core-brand"],
@@ -953,10 +985,35 @@ def main() -> int:
         help="Target platform asset pack (repeatable, core-brand only)",
     )
     parser.add_argument("-o", "--output", help="Override output path for logo bundle")
+    parser.add_argument(
+        "--web",
+        action="store_true",
+        help="Shortest web brand workflow: implies core-brand, web-seo, and public/brand",
+    )
     parser.add_argument("--assets-dir", help="Override output directory for bundle assets")
     parser.add_argument("--manifest", help="Override manifest path for bundle assets")
     parser.add_argument("-s", "--style", help="Override style (e.g., minimalist, pixel-art)")
     parser.add_argument("-m", "--model", help="Override image generation model")
+    parser.add_argument(
+        "--text-model",
+        help="Override text model for README digestion and prompt refinement",
+    )
+    parser.add_argument("--size", help="Override image size (e.g. 1K, 2K)")
+    parser.add_argument("--visual-metaphor", help="Override visual metaphor or use 'none'")
+    parser.add_argument(
+        "--icon-colors",
+        help="Override palette as a comma-separated list or descriptive string",
+    )
+    parser.add_argument("--instructions", help="Extra prompt instructions appended to each asset")
+    parser.add_argument("--key-color", help="Override chromakey background color (hex)")
+    parser.add_argument("--tolerance", type=int, help="Override chromakey edge tolerance")
+    parser.add_argument("--trim-margin", type=int, help="Override trim margin percentage")
+    parser.add_argument("--quality", type=int, help="Override PNG compression quality")
+    parser.add_argument(
+        "--no-metadata",
+        action="store_true",
+        help="Skip generated metadata outputs",
+    )
     parser.add_argument("-n", "--name", help="Override project name")
     parser.add_argument(
         "--no-trim", action="store_true", help="Disable transparent padding trimming"
@@ -991,17 +1048,27 @@ def main() -> int:
 
     return run_generation(
         project_path=project_path,
-        config_path=Path(args.config) if args.config else None,
         verbose=args.verbose,
         dry_run=args.dry_run,
         template_vars=template_vars,
         bundle=args.bundle,
         targets=args.target,
+        web=args.web,
         assets_dir=args.assets_dir,
         manifest_path=args.manifest,
         output_path=args.output,
         style=args.style,
         model=args.model,
+        text_model=args.text_model,
+        size=args.size,
+        visual_metaphor=args.visual_metaphor,
+        icon_colors=_parse_icon_colors(args.icon_colors),
+        additional_instructions=args.instructions,
+        key_color=args.key_color,
+        tolerance=args.tolerance,
+        trim_margin=args.trim_margin,
+        compress_quality=args.quality,
+        no_metadata=args.no_metadata,
         project_name_override=args.name,
         no_refine=args.no_refine,
         no_trim=args.no_trim,
