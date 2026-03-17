@@ -324,7 +324,7 @@ def _plan_targeted_core_brand(run_config: ResolvedRunConfig) -> AssetPlan:
                 strategy="generated_from_logo_reference",
                 width=1200,
                 height=630,
-                aspect_ratio="40:21",
+                aspect_ratio="16:9",
                 source_key="logo-mark",
             )
         )
@@ -364,7 +364,7 @@ def _plan_targeted_core_brand(run_config: ResolvedRunConfig) -> AssetPlan:
                 strategy="generated_from_logo_reference",
                 width=1024,
                 height=500,
-                aspect_ratio="256:125",
+                aspect_ratio="16:9",
                 source_key="logo-mark",
             )
         )

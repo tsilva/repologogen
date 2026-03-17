@@ -184,6 +184,28 @@ def resize_png(input_path: Path, output_path: Path, size: tuple[int, int]) -> di
     return {"path": str(output_path), "size": size}
 
 
+def resize_cover_png(
+    input_path: Path,
+    output_path: Path,
+    size: tuple[int, int],
+) -> dict[str, object]:
+    """Resize an image to fill the target size using center crop."""
+    img = Image.open(input_path).convert("RGBA")
+    target_width, target_height = size
+    src_width, src_height = img.size
+
+    scale = max(target_width / src_width, target_height / src_height)
+    resized_width = max(1, int(round(src_width * scale)))
+    resized_height = max(1, int(round(src_height * scale)))
+    resized = img.resize((resized_width, resized_height), Image.Resampling.LANCZOS)
+
+    left = max(0, (resized_width - target_width) // 2)
+    top = max(0, (resized_height - target_height) // 2)
+    cropped = resized.crop((left, top, left + target_width, top + target_height))
+    _save_image(cropped, input_path, output_path)
+    return {"path": str(output_path), "size": size}
+
+
 def export_favicon_set(
     input_path: Path,
     output_dir: Path,
@@ -209,17 +231,18 @@ def export_favicon_set(
     return {"pngs": png_outputs, "ico": str(ico_path)}
 
 
-def compose_social_card(
-    icon_path: Path,
+def compose_marketing_graphic(
+    brand_image_path: Path,
     output_path: Path,
     *,
     project_name: str,
     title: str,
     description: str,
+    size: tuple[int, int] = (1200, 630),
     accent_color: str = "#58a6ff",
 ) -> dict[str, object]:
-    """Compose a deterministic social share card using the generated icon."""
-    width, height = 1200, 630
+    """Compose a deterministic marketing graphic using the generated brand image."""
+    width, height = size
     canvas = Image.new("RGBA", (width, height))
     draw = ImageDraw.Draw(canvas)
 
@@ -242,31 +265,61 @@ def compose_social_card(
         outline=(255, 255, 255, 30),
         width=2,
     )
-    draw.ellipse((860, -120, 1260, 280), fill=accent + (45,))
-    draw.ellipse((-100, 420, 280, 820), fill=accent + (25,))
+    draw.ellipse(
+        (int(width * 0.72), int(height * -0.19), int(width * 1.05), int(height * 0.44)),
+        fill=accent + (45,),
+    )
+    draw.ellipse(
+        (int(width * -0.08), int(height * 0.66), int(width * 0.23), int(height * 1.3)),
+        fill=accent + (25,),
+    )
 
-    icon = Image.open(icon_path).convert("RGBA").resize((280, 280), Image.Resampling.LANCZOS)
-    icon_bg = Image.new("RGBA", (340, 340), (255, 255, 255, 18))
+    brand_size = max(180, int(min(width, height) * 0.44))
+    brand_frame = brand_size + max(48, int(brand_size * 0.2))
+    brand = Image.open(brand_image_path).convert("RGBA").resize(
+        (brand_size, brand_size),
+        Image.Resampling.LANCZOS,
+    )
+    icon_bg = Image.new("RGBA", (brand_frame, brand_frame), (255, 255, 255, 18))
     icon_draw = ImageDraw.Draw(icon_bg)
-    icon_draw.rounded_rectangle((0, 0, 339, 339), radius=42, fill=(255, 255, 255, 18))
-    canvas.alpha_composite(icon_bg, dest=(88, 145))
-    canvas.alpha_composite(icon, dest=(118, 175))
+    icon_draw.rounded_rectangle(
+        (0, 0, brand_frame - 1, brand_frame - 1),
+        radius=max(28, brand_frame // 8),
+        fill=(255, 255, 255, 18),
+    )
 
-    eyebrow_font = _load_font(28, bold=False)
-    title_font = _load_font(60, bold=True)
-    body_font = _load_font(28, bold=False)
+    brand_bg_x = max(56, int(width * 0.07))
+    brand_bg_y = max(72, int((height - brand_frame) / 2))
+    canvas.alpha_composite(icon_bg, dest=(brand_bg_x, brand_bg_y))
+    canvas.alpha_composite(
+        brand,
+        dest=(
+            brand_bg_x + (brand_frame - brand_size) // 2,
+            brand_bg_y + (brand_frame - brand_size) // 2,
+        ),
+    )
 
-    text_left = 470
-    draw.text((text_left, 120), project_name.upper(), fill=(180, 198, 227), font=eyebrow_font)
+    eyebrow_font = _load_font(max(20, int(height * 0.045)), bold=False)
+    title_font = _load_font(max(38, int(height * 0.095)), bold=True)
+    body_font = _load_font(max(20, int(height * 0.045)), bold=False)
 
-    title_lines = _wrap_text(draw, title, title_font, 620, max_lines=3)
-    y_offset = 180
+    text_left = brand_bg_x + brand_frame + max(48, int(width * 0.05))
+    text_width = width - text_left - max(56, int(width * 0.06))
+    draw.text(
+        (text_left, max(72, int(height * 0.16))),
+        project_name.upper(),
+        fill=(180, 198, 227),
+        font=eyebrow_font,
+    )
+
+    title_lines = _wrap_text(draw, title, title_font, text_width, max_lines=3)
+    y_offset = max(120, int(height * 0.29))
     for line in title_lines:
         draw.text((text_left, y_offset), line, fill=(255, 255, 255), font=title_font)
         line_bbox = draw.textbbox((text_left, y_offset), line, font=title_font)
         y_offset = line_bbox[3] + 8
 
-    body_lines = _wrap_text(draw, description, body_font, 560, max_lines=4)
+    body_lines = _wrap_text(draw, description, body_font, text_width, max_lines=4)
     y_offset += 24
     for line in body_lines:
         draw.text((text_left, y_offset), line, fill=(210, 220, 238), font=body_font)
@@ -276,6 +329,27 @@ def compose_social_card(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     canvas.convert("RGB").save(output_path, "PNG")
     return {"path": str(output_path), "size": (width, height)}
+
+
+def compose_social_card(
+    icon_path: Path,
+    output_path: Path,
+    *,
+    project_name: str,
+    title: str,
+    description: str,
+    accent_color: str = "#58a6ff",
+) -> dict[str, object]:
+    """Compose a deterministic social share card using the generated icon."""
+    return compose_marketing_graphic(
+        icon_path,
+        output_path,
+        project_name=project_name,
+        title=title,
+        description=description,
+        size=(1200, 630),
+        accent_color=accent_color,
+    )
 
 
 def write_site_webmanifest(

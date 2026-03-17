@@ -7,10 +7,12 @@ from PIL import Image
 
 from repologogen.processor import (
     chromakey_to_transparent,
+    compose_marketing_graphic,
     compose_social_card,
     compress_png,
     export_favicon_set,
     get_image_info,
+    resize_cover_png,
     resize_png,
     trim_transparent,
     write_site_webmanifest,
@@ -172,6 +174,21 @@ class TestResizePng:
         assert Image.open(output_path).size == (32, 32)
 
 
+class TestResizeCoverPng:
+    """Test cover resize for exact-size wide exports."""
+
+    def test_resizes_with_center_crop(self, tmp_path):
+        img = Image.new("RGBA", (1600, 900), (255, 0, 0, 255))
+        input_path = tmp_path / "input.png"
+        output_path = tmp_path / "output.png"
+        img.save(input_path, "PNG")
+
+        result = resize_cover_png(input_path, output_path, (1200, 630))
+
+        assert result["size"] == (1200, 630)
+        assert Image.open(output_path).size == (1200, 630)
+
+
 class TestExportFaviconSet:
     """Test favicon export helpers."""
 
@@ -205,6 +222,28 @@ class TestComposeSocialCard:
 
         assert result["size"] == (1200, 630)
         assert Image.open(output_path).size == (1200, 630)
+
+
+class TestComposeMarketingGraphic:
+    """Test generic marketing graphic composition."""
+
+    def test_creates_exact_size_marketing_graphic(self, tmp_path):
+        img = Image.new("RGBA", (512, 512), (0, 128, 255, 255))
+        brand_path = tmp_path / "brand.png"
+        output_path = tmp_path / "feature.png"
+        img.save(brand_path, "PNG")
+
+        result = compose_marketing_graphic(
+            brand_path,
+            output_path,
+            project_name="RepoLogoGen",
+            title="RepoLogoGen Brand Pack",
+            description="Generate platform assets from a base logo.",
+            size=(1024, 500),
+        )
+
+        assert result["size"] == (1024, 500)
+        assert Image.open(output_path).size == (1024, 500)
 
 
 class TestWriteSiteWebmanifest:

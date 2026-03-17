@@ -81,13 +81,13 @@ class TestImageGenerator:
                 "Prompt",
                 "model",
                 output_path,
-                aspect_ratio="40:21",
+                aspect_ratio="16:9",
                 reference_images=[reference_image],
             )
 
             payload = mock_client.post.call_args[1]["json"]
             content = payload["messages"][0]["content"]
-            assert payload["image_config"]["aspect_ratio"] == "40:21"
+            assert payload["image_config"]["aspect_ratio"] == "16:9"
             assert isinstance(content, list)
             assert content[0]["type"] == "text"
             assert content[1]["type"] == "image_url"

@@ -42,6 +42,32 @@ class DummyGenerator:
         Image.new("RGB", (1024, 1024), (0, 255, 0)).save(output_path, "PNG")
 
 
+class FailingMarketingGenerator(DummyGenerator):
+    """Stub generator that fails for reference-based marketing image generation."""
+
+    def generate(
+        self,
+        prompt,
+        model,
+        output_path,
+        size="1K",
+        aspect_ratio="1:1",
+        reference_images=None,
+    ):
+        if reference_images and aspect_ratio == "16:9":
+            raise cli.ImageGeneratorError(
+                "Unexpected error: No images in response: dict_keys(['role', 'content'])"
+            )
+        return super().generate(
+            prompt,
+            model,
+            output_path,
+            size=size,
+            aspect_ratio=aspect_ratio,
+            reference_images=reference_images,
+        )
+
+
 def _set_test_console(monkeypatch):
     buffer = io.StringIO()
     monkeypatch.setattr(
@@ -119,7 +145,7 @@ class TestRunGeneration:
         assert "single bold symbol" in DummyGenerator.prompts[1]["prompt"]
         assert "legible at 16x16 and 32x32" in DummyGenerator.prompts[1]["prompt"]
         assert len(DummyGenerator.prompts[1]["reference_images"]) == 1
-        assert DummyGenerator.prompts[2]["aspect_ratio"] == "40:21"
+        assert DummyGenerator.prompts[2]["aspect_ratio"] == "16:9"
         assert len(DummyGenerator.prompts[2]["reference_images"]) == 1
         social_asset = next(
             asset for asset in manifest["assets"] if asset["key"] == "web-seo-og-image"
@@ -166,11 +192,41 @@ class TestRunGeneration:
         manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
         assert manifest["targets"] == ["web-seo", "google-play", "apple-store"]
         assert len(DummyGenerator.prompts) == 4
-        assert DummyGenerator.prompts[2]["aspect_ratio"] == "40:21"
-        assert DummyGenerator.prompts[3]["aspect_ratio"] == "256:125"
+        assert DummyGenerator.prompts[2]["aspect_ratio"] == "16:9"
+        assert DummyGenerator.prompts[3]["aspect_ratio"] == "16:9"
         assert all(
             len(prompt["reference_images"]) == 1 for prompt in DummyGenerator.prompts[1:]
         )
+
+    def test_targeted_core_brand_falls_back_for_marketing_graphics(self, tmp_path, monkeypatch):
+        _set_test_console(monkeypatch)
+        DummyGenerator.prompts = []
+        monkeypatch.setattr(cli, "ImageGenerator", FailingMarketingGenerator)
+        monkeypatch.setattr(cli, "get_api_key", lambda project_path=None: None)
+        monkeypatch.setattr(cli, "digest_readme", lambda *args, **kwargs: "Generate brand assets.")
+        monkeypatch.setattr(
+            cli,
+            "extract_repo_metadata",
+            lambda *args, **kwargs: {
+                "title": "Demo",
+                "short_description": "Generate brand assets.",
+                "social_title": "Demo brand assets",
+                "social_description": "Generate brand assets.",
+                "keywords": ["demo", "brand"],
+            },
+        )
+
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='demo'\n")
+        (tmp_path / "README.md").write_text("# Demo\nA project.")
+
+        result = cli.run_generation(
+            project_path=tmp_path,
+            bundle="core-brand",
+            targets=["web-seo"],
+        )
+
+        assert result == 0
+        assert (tmp_path / "repologogen-assets" / "web-seo" / "og-image-1200x630.png").exists()
 
     def test_logo_bundle_respects_output_override(self, tmp_path, monkeypatch):
         _set_test_console(monkeypatch)

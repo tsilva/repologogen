@@ -38,9 +38,11 @@ from repologogen.planner import (
 )
 from repologogen.processor import (
     chromakey_to_transparent,
+    compose_marketing_graphic,
     compress_png,
     export_favicon_set,
     get_image_info,
+    resize_cover_png,
     resize_png,
     trim_transparent,
     write_site_webmanifest,
@@ -136,7 +138,9 @@ def _build_asset_prompt(
         social_instructions = (
             f'Use "{social_title}" as the primary headline. '
             f'Include this supporting line or close paraphrase: "{social_description}". '
-            "Make the typography prominent and readable in a link preview."
+            "Make the typography prominent and readable in a link preview. "
+            "Keep all critical text and the focal brand elements inside a centered safe area "
+            "so the image can be cropped slightly to the final export size."
         )
         additional_instructions = (
             f"{additional_instructions}\n{social_instructions}".strip()
@@ -156,7 +160,8 @@ def _build_asset_prompt(
         feature_instructions = (
             f'Use "{social_title}" as the main marketing title. '
             "Preserve the reference logo's visual identity while expanding it into a wide, "
-            "store-ready promotional composition."
+            "store-ready promotional composition. Keep the title and main artwork safely "
+            "inside the center region so the export can be cropped to the final store size."
         )
         additional_instructions = (
             f"{additional_instructions}\n{feature_instructions}".strip()
@@ -494,6 +499,39 @@ def _write_web_target_manifest(
     )
 
 
+def _compose_marketing_fallback(
+    run_config: Any,
+    item: Any,
+    metadata: dict[str, Any],
+    *,
+    logo_master_path: Path,
+    icon_master_path: Path,
+) -> None:
+    source_path = icon_master_path if icon_master_path.exists() else logo_master_path
+    title = str(metadata.get("social_title") or run_config.project_name)
+    description = str(
+        metadata.get("social_description") or metadata.get("short_description") or ""
+    )
+    compose_marketing_graphic(
+        source_path,
+        item.output_path,
+        project_name=run_config.project_name,
+        title=title,
+        description=description,
+        size=(item.width or 1200, item.height or 630),
+        accent_color=(
+            run_config.assets["icon"].icon_colors[0]
+            if (
+                isinstance(run_config.assets["icon"].icon_colors, list)
+                and run_config.assets["icon"].icon_colors
+            )
+            else "#58a6ff"
+        ),
+    )
+    if run_config.compress:
+        compress_png(item.output_path, item.output_path, quality=run_config.compress_quality)
+
+
 def _generate_core_brand(
     generator: ImageGenerator,
     run_config: Any,
@@ -587,21 +625,42 @@ def _generate_core_brand(
                     if item.kind in {"social-card", "feature-graphic"}
                     else item.kind
                 )
-                _generate_asset(
-                    generator,
-                    run_config,
-                    asset_config=run_config.assets[asset_name],
-                    output_path=item.output_path,
-                    template_vars=template_vars,
-                    project_description=project_description,
-                    purpose=_purpose_for_plan_item(item),
-                    progress=progress,
-                    task_label=item.key.replace("-", " ").title(),
-                    metadata=metadata,
-                    reference_images=[logo_master_path],
-                    aspect_ratio=item.aspect_ratio or "1:1",
-                    remove_background=False,
-                )
+                try:
+                    _generate_asset(
+                        generator,
+                        run_config,
+                        asset_config=run_config.assets[asset_name],
+                        output_path=item.output_path,
+                        template_vars=template_vars,
+                        project_description=project_description,
+                        purpose=_purpose_for_plan_item(item),
+                        progress=progress,
+                        task_label=item.key.replace("-", " ").title(),
+                        metadata=metadata,
+                        reference_images=[logo_master_path],
+                        aspect_ratio=item.aspect_ratio or "1:1",
+                        remove_background=False,
+                    )
+                    if item.width and item.height:
+                        resize_cover_png(
+                            item.output_path,
+                            item.output_path,
+                            (item.width, item.height),
+                        )
+                except ImageGeneratorError as error:
+                    if item.kind not in {"social-card", "feature-graphic"}:
+                        raise
+                    console.print(
+                        "[yellow]Falling back to deterministic composition for "
+                        f"{item.key}:[/yellow] {error}"
+                    )
+                    _compose_marketing_fallback(
+                        run_config,
+                        item,
+                        metadata,
+                        logo_master_path=logo_master_path,
+                        icon_master_path=icon_master_path,
+                    )
 
         if run_config.targets:
             _write_web_target_manifest(run_config, plan, metadata, project_description)
