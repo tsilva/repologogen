@@ -12,6 +12,7 @@ import yaml
 from jsonschema import ValidationError, validate
 
 ASSET_NAMES = ("logo", "icon", "favicon", "social_card")
+TARGET_NAMES = ("web-seo", "google-play", "apple-store")
 ASSET_OVERRIDE_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
@@ -70,6 +71,7 @@ class Config:
     trim_margin: int = 5
     refine_prompt: bool = True
     bundle: str = "logo"
+    targets: list[str] = field(default_factory=list)
     assets_dir: str = "repologogen-assets"
     manifest_path: str = "repologogen-assets/manifest.json"
     metadata: MetadataConfig = field(default_factory=MetadataConfig)
@@ -117,6 +119,11 @@ CONFIG_SCHEMA: dict[str, Any] = {
         "trim_margin": {"type": "integer", "minimum": 0, "maximum": 25},
         "refine_prompt": {"type": "boolean"},
         "bundle": {"type": "string", "enum": ["logo", "core-brand"]},
+        "targets": {
+            "type": "array",
+            "items": {"type": "string", "enum": list(TARGET_NAMES)},
+            "uniqueItems": True,
+        },
         "assets_dir": {"type": "string"},
         "manifest_path": {"type": "string"},
         "metadata": {
@@ -159,6 +166,7 @@ COMPLETE_CONFIG_REQUIRED_FIELDS = [
     "trim_margin",
     "refine_prompt",
     "bundle",
+    "targets",
     "assets_dir",
     "manifest_path",
     "metadata",
@@ -288,6 +296,7 @@ def get_bundled_defaults() -> dict[str, Any]:
         "trim_margin": 5,
         "refine_prompt": True,
         "bundle": "logo",
+        "targets": [],
         "assets_dir": "repologogen-assets",
         "manifest_path": "repologogen-assets/manifest.json",
         "metadata": {"enabled": True},

@@ -4,6 +4,7 @@ import json
 from unittest.mock import Mock, patch
 
 import pytest
+from PIL import Image
 
 from repologogen.generator import (
     ImageGenerator,
@@ -39,6 +40,58 @@ class TestImageGenerator:
         monkeypatch.setenv("OPENROUTER_API_KEY", "env-key")
         generator = ImageGenerator()
         assert generator.api_key == "env-key"
+
+    def test_generate_accepts_reference_images(self, tmp_path):
+        """Test that reference images are sent as multimodal inputs."""
+        reference_image = tmp_path / "reference.png"
+        output_path = tmp_path / "output.png"
+        Image.new("RGB", (32, 32), (255, 0, 0)).save(reference_image, "PNG")
+
+        mock_response = Mock()
+        mock_response.raise_for_status = Mock()
+        mock_response.json.return_value = {
+            "choices": [
+                {
+                    "message": {
+                        "images": [
+                            {
+                                "image_url": {
+                                    "url": (
+                                        "data:image/png;base64,"
+                                        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwC"
+                                        "AAAAC0lEQVR42mP8/x8AAwMCAO+X4e0AAAAASUVORK5CYII="
+                                    )
+                                }
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+
+        with patch("repologogen.generator.httpx.Client") as mock_client_cls:
+            mock_client = Mock()
+            mock_client.__enter__ = Mock(return_value=mock_client)
+            mock_client.__exit__ = Mock(return_value=False)
+            mock_client.post.return_value = mock_response
+            mock_client_cls.return_value = mock_client
+
+            generator = ImageGenerator(api_key="test-key")
+            generator.generate(
+                "Prompt",
+                "model",
+                output_path,
+                aspect_ratio="40:21",
+                reference_images=[reference_image],
+            )
+
+            payload = mock_client.post.call_args[1]["json"]
+            content = payload["messages"][0]["content"]
+            assert payload["image_config"]["aspect_ratio"] == "40:21"
+            assert isinstance(content, list)
+            assert content[0]["type"] == "text"
+            assert content[1]["type"] == "image_url"
+            assert content[1]["image_url"]["url"].startswith("data:image/png;base64,")
 
 
 class TestBuildPrompt:

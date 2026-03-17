@@ -2,6 +2,7 @@
 
 import base64
 import json
+import mimetypes
 from contextlib import suppress
 from pathlib import Path
 from typing import Any
@@ -54,6 +55,7 @@ class ImageGenerator:
         output_path: Path,
         size: str = "1K",
         aspect_ratio: str = "1:1",
+        reference_images: list[Path] | None = None,
     ) -> dict[str, Any]:
         """Generate an image and save it to the output path."""
         headers = {
@@ -61,9 +63,20 @@ class ImageGenerator:
             "Content-Type": "application/json",
         }
 
+        message_content: str | list[dict[str, Any]] = prompt
+        if reference_images:
+            message_content = [{"type": "text", "text": prompt}]
+            for image_path in reference_images:
+                message_content.append(
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": self._encode_image_as_data_url(image_path)},
+                    }
+                )
+
         payload = {
             "model": model,
-            "messages": [{"role": "user", "content": prompt}],
+            "messages": [{"role": "user", "content": message_content}],
             "modalities": ["image", "text"],
             "image_config": {
                 "aspect_ratio": aspect_ratio,
@@ -90,6 +103,7 @@ class ImageGenerator:
 
                 image_data = images[0]
                 image_url = image_data.get("image_url", {}).get("url", "")
+                output_path.parent.mkdir(parents=True, exist_ok=True)
 
                 if image_url.startswith("data:image"):
                     # Extract base64 data from data URL
@@ -105,6 +119,11 @@ class ImageGenerator:
                 return {"success": True, "model": model, "output_path": str(output_path)}
 
         except httpx.HTTPStatusError as e:
+            if reference_images:
+                raise ImageGeneratorError(
+                    "API error during reference-image generation "
+                    f"({e.response.status_code}): {e.response.text}"
+                ) from e
             raise ImageGeneratorError(
                 f"API error {e.response.status_code}: {e.response.text}"
             ) from e
@@ -112,6 +131,12 @@ class ImageGenerator:
             raise ImageGeneratorError(f"Request failed: {e}") from e
         except Exception as e:
             raise ImageGeneratorError(f"Unexpected error: {e}") from e
+
+    @staticmethod
+    def _encode_image_as_data_url(path: Path) -> str:
+        mime_type = mimetypes.guess_type(path.name)[0] or "image/png"
+        encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+        return f"data:{mime_type};base64,{encoded}"
 
 
 def _strip_json_fence(content: str) -> str:

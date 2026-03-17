@@ -19,9 +19,25 @@ class DummyGenerator:
     def __init__(self, project_path=None):
         self.project_path = project_path
 
-    def generate(self, prompt, model, output_path, size="1K", aspect_ratio="1:1"):
-        type(self).prompts.append({"prompt": prompt, "model": model, "size": size})
-        del aspect_ratio
+    def generate(
+        self,
+        prompt,
+        model,
+        output_path,
+        size="1K",
+        aspect_ratio="1:1",
+        reference_images=None,
+    ):
+        type(self).prompts.append(
+            {
+                "prompt": prompt,
+                "model": model,
+                "size": size,
+                "aspect_ratio": aspect_ratio,
+                "reference_images": list(reference_images or []),
+                "output_path": str(output_path),
+            }
+        )
         output_path.parent.mkdir(parents=True, exist_ok=True)
         Image.new("RGB", (1024, 1024), (0, 255, 0)).save(output_path, "PNG")
 
@@ -86,9 +102,62 @@ class TestRunGeneration:
         assert manifest["bundle"] == "core-brand"
         assert (tmp_path / "repologogen-assets" / "logo" / "logo-1024.png").exists()
         assert (tmp_path / "repologogen-assets" / "social" / "social-card-1200x630.png").exists()
-        assert len(DummyGenerator.prompts) == 2
+        assert len(DummyGenerator.prompts) == 3
         assert "single bold symbol" in DummyGenerator.prompts[1]["prompt"]
         assert "legible at 16x16 and 32x32" in DummyGenerator.prompts[1]["prompt"]
+        assert len(DummyGenerator.prompts[1]["reference_images"]) == 1
+        assert DummyGenerator.prompts[2]["aspect_ratio"] == "40:21"
+        assert len(DummyGenerator.prompts[2]["reference_images"]) == 1
+        social_asset = next(
+            asset for asset in manifest["assets"] if asset["key"] == "social-card"
+        )
+        assert social_asset["strategy"] == "generated_from_logo_reference"
+
+    def test_targeted_core_brand_writes_platform_assets(self, tmp_path, monkeypatch):
+        _set_test_console(monkeypatch)
+        DummyGenerator.prompts = []
+        monkeypatch.setattr(cli, "ImageGenerator", DummyGenerator)
+        monkeypatch.setattr(cli, "get_api_key", lambda project_path=None: None)
+        monkeypatch.setattr(cli, "digest_readme", lambda *args, **kwargs: "Generate brand assets.")
+
+        monkeypatch.setattr(
+            cli,
+            "extract_repo_metadata",
+            lambda *args, **kwargs: {
+                "title": "Demo",
+                "short_description": "Generate brand assets.",
+                "social_title": "Demo brand assets",
+                "social_description": "Generate brand assets.",
+                "keywords": ["demo", "brand"],
+            },
+        )
+
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='demo'\n")
+        (tmp_path / "README.md").write_text("# Demo\nA project.")
+
+        result = cli.run_generation(
+            project_path=tmp_path,
+            bundle="core-brand",
+            targets=["web-seo", "google-play", "apple-store"],
+        )
+
+        assert result == 0
+        root = tmp_path / "repologogen-assets"
+        assert (root / "logo" / "logo-1024.png").exists()
+        assert (root / "icon" / "icon-1024.png").exists()
+        assert (root / "web-seo" / "og-image-1200x630.png").exists()
+        assert (root / "google-play" / "feature-graphic-1024x500.png").exists()
+        assert (root / "apple-store" / "app-store-icon-1024.png").exists()
+        assert (root / "web-seo" / "site.webmanifest").exists()
+
+        manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
+        assert manifest["targets"] == ["web-seo", "google-play", "apple-store"]
+        assert len(DummyGenerator.prompts) == 4
+        assert DummyGenerator.prompts[2]["aspect_ratio"] == "40:21"
+        assert DummyGenerator.prompts[3]["aspect_ratio"] == "256:125"
+        assert all(
+            len(prompt["reference_images"]) == 1 for prompt in DummyGenerator.prompts[1:]
+        )
 
     def test_logo_bundle_respects_output_override(self, tmp_path, monkeypatch):
         _set_test_console(monkeypatch)

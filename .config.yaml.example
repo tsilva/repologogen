@@ -61,5 +61,11 @@ additional_instructions: ""
 # Refine the assembled prompt via LLM before image generation
 refine_prompt: true
 
+# Optional platform packs for the core-brand bundle
+targets:
+  - web-seo
+  - google-play
+  - apple-store
+
 # Custom prompt template (null to use default)
 prompt_template: null

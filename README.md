@@ -5,7 +5,7 @@
   [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-3776AB.svg?logo=python&logoColor=white)](https://www.python.org)
   [![OpenRouter](https://img.shields.io/badge/Powered_by-OpenRouter-6366F1.svg)](https://openrouter.ai)
 
-  **🎨 Generate repo logos and core brand assets from the command line ✨**
+  **🎨 Generate repo logos, brand packs, and platform assets from the command line ✨**
 
   [Installation](#-installation) · [Quick Start](#-quick-start) · [Configuration](#%EF%B8%8F-configuration)
 </div>
@@ -18,16 +18,18 @@
 
 **The pain:** Every project needs a logo, but commissioning one takes time and money. Stock icons look generic. AI tools require manual transparency cleanup, awkward cropping, and repetitive prompt engineering.
 
-**The solution:** repologogen auto-detects your project type, builds tailored prompts, generates a primary logo plus a dedicated icon mark via OpenRouter, and expands them into a core brand pack with icons, favicons, a social card, and manifest data.
+**The solution:** repologogen auto-detects your project type, builds tailored prompts, generates a primary logo, derives a dedicated icon mark from that logo, and expands the brand into core assets plus optional platform packs for Web SEO, Google Play, and the Apple App Store.
 
 **The result:** Production-ready repo branding in under 30 seconds, with zero manual post-processing.
 
 ## ⚡ Features
 
-- **One-Command Generation** — Point at any repo and get a polished logo or full core brand pack
+- **One-Command Generation** — Point at any repo and get a polished logo, core brand pack, or targeted platform assets
 - **Automatic Transparency** — Chromakey-to-alpha conversion with graduated edge detection
 - **Smart Trimming** — Crops excess padding and resizes to fill the canvas
-- **Core Brand Bundle** — Generate logo, icon, favicon set, social card, and manifest JSON
+- **Logo-First Derivation** — Generate the main logo first, then derive the icon mark and resize-only small assets from it
+- **Platform Packs** — Add Web SEO, Google Play, and Apple Store assets with repeatable `--target` flags
+- **Reference-Guided Marketing Art** — Generate text-bearing graphics from the main logo as a visual reference instead of stretching/resizing them
 - **Project Detection** — Recognizes Python, Node.js, Rust, Go, Java, .NET, Ruby, PHP, and C++ projects
 - **3-Tier Config** — Project `.config.yaml` > User `~/.repologogen/config.yaml` > Built-in defaults
 - **Custom Prompts** — Full template system with variables for style, colors, metaphors, and more
@@ -69,9 +71,12 @@ repologogen
 
 # Full core brand pack
 repologogen --bundle core-brand
+
+# Core brand pack plus platform assets
+repologogen --bundle core-brand --target web-seo --target google-play --target apple-store
 ```
 
-**3. Done.** Your `logo.png` or `repologogen-assets/` bundle is ready.
+**3. Done.** Your `logo.png` or `repologogen-assets/` pack is ready.
 
 ## 🛠️ Usage
 
@@ -81,6 +86,9 @@ repologogen
 
 # Generate the full core brand pack
 repologogen --bundle core-brand
+
+# Generate platform-ready assets from the base logo
+repologogen --bundle core-brand --target web-seo --target google-play
 
 # Target a specific project
 repologogen /path/to/project
@@ -109,6 +117,7 @@ repologogen -v
 | Flag | Description |
 |------|-------------|
 | `--bundle` | Select `logo` or `core-brand` generation mode |
+| `--target` | Add `web-seo`, `google-play`, and/or `apple-store` platform packs to `core-brand` |
 | `-s`, `--style` | Override logo style |
 | `-o`, `--output` | Override output path for the `logo` bundle |
 | `--assets-dir` | Override output directory for bundle assets |
@@ -137,6 +146,9 @@ Configuration loads in priority order — project overrides user, user overrides
 model: google/gemini-3-pro-image-preview
 size: 1K
 bundle: core-brand
+targets:
+  - web-seo
+  - google-play
 assets_dir: branding
 style: "SNES 16-bit pixel art"
 icon_colors:
@@ -179,6 +191,7 @@ assets:
 | `additional_instructions` | `""` | Extra text appended to the AI prompt |
 | `prompt_template` | `null` | Fully custom prompt template |
 | `bundle` | `logo` | Default bundle to generate (`logo` or `core-brand`) |
+| `targets` | `[]` | Platform packs to add to the `core-brand` bundle |
 | `assets_dir` | `repologogen-assets` | Output directory for bundle assets |
 | `manifest_path` | `repologogen-assets/manifest.json` | Manifest path for the bundle output |
 
@@ -197,6 +210,8 @@ Supported override keys per asset:
 - `model`
 - `size`
 - `prompt_template`
+
+`assets.social_card` controls the wide text-bearing graphics, including the legacy social card, `web-seo` OG image, and Google Play feature graphic.
 
 ### Bundle Output
 
@@ -219,6 +234,33 @@ repologogen-assets/
 │   └── logo-1024.png
 ├── social/
 │   └── social-card-1200x630.png
+└── manifest.json
+```
+
+When `--target` is used, repologogen keeps the shared logo/icon outputs and adds the selected platform pack folders:
+
+```text
+repologogen-assets/
+├── icon/
+│   └── icon-1024.png
+├── logo/
+│   └── logo-1024.png
+├── web-seo/
+│   ├── android-chrome-192.png
+│   ├── android-chrome-512.png
+│   ├── apple-touch-icon.png
+│   ├── favicon/
+│   │   ├── favicon-16.png
+│   │   ├── favicon-32.png
+│   │   ├── favicon-48.png
+│   │   └── favicon.ico
+│   ├── og-image-1200x630.png
+│   └── site.webmanifest
+├── google-play/
+│   ├── feature-graphic-1024x500.png
+│   └── google-play-icon-512.png
+├── apple-store/
+│   └── app-store-icon-1024.png
 └── manifest.json
 ```
 
@@ -256,8 +298,10 @@ cli.py → config.py → detector.py → planner.py → generator.py → process
 3. **Planning** — Resolves the selected bundle, per-asset overrides, and output paths
 4. **Image Generation** — Calls OpenRouter API (OpenAI-compatible) for a canonical transparent brand mark
 5. **Processing** — Applies chromakey removal, trim, and compression to the generated logo and icon sources
-6. **Derivation** — Exports deterministic favicon and app-icon sizes from the dedicated icon mark so they stay legible at very small sizes
-7. **Composition** — Builds the social card locally and writes a manifest JSON with metadata and asset paths
+6. **Icon Extraction** — Uses the main logo as a reference image to generate a text-free icon mark
+7. **Derivation** — Resizes the icon mark into favicon, app-icon, and store-icon outputs where text is not required
+8. **Reference Expansion** — Generates text-bearing SEO/store graphics from the main logo as a reference image
+9. **Metadata** — Writes manifest JSON plus a `site.webmanifest` when the `web-seo` target is selected
 
 ### Supported Project Types
 

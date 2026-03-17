@@ -13,6 +13,7 @@ from repologogen.processor import (
     get_image_info,
     resize_png,
     trim_transparent,
+    write_site_webmanifest,
 )
 
 
@@ -204,3 +205,24 @@ class TestComposeSocialCard:
 
         assert result["size"] == (1200, 630)
         assert Image.open(output_path).size == (1200, 630)
+
+
+class TestWriteSiteWebmanifest:
+    """Test site webmanifest generation."""
+
+    def test_writes_manifest_json(self, tmp_path):
+        output_path = tmp_path / "site.webmanifest"
+
+        result = write_site_webmanifest(
+            output_path,
+            name="RepoLogoGen",
+            description="Generate brand assets.",
+            icons=[
+                {"src": "android-chrome-192.png", "sizes": "192x192", "type": "image/png"},
+            ],
+        )
+
+        assert result["path"] == str(output_path)
+        payload = output_path.read_text(encoding="utf-8")
+        assert "RepoLogoGen" in payload
+        assert "android-chrome-192.png" in payload

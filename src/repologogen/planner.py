@@ -46,6 +46,7 @@ class ResolvedRunConfig:
     project_name: str
     project_type: str
     bundle: str
+    targets: tuple[str, ...]
     output_path: Path
     assets_dir: Path
     manifest_path: Path
@@ -69,8 +70,11 @@ class AssetPlanItem:
     key: str
     kind: str
     output_path: Path
+    target: str
+    strategy: str
     width: int | None = None
     height: int | None = None
+    aspect_ratio: str | None = None
     source_key: str | None = None
 
 
@@ -153,6 +157,8 @@ def resolve_run_config(
     cli = cli_overrides or {}
     project_name = project_name_override or project_path.resolve().name
     bundle = str(cli.get("bundle") or config.bundle)
+    raw_targets = cli.get("targets")
+    targets = tuple(raw_targets if raw_targets is not None else config.targets)
 
     output_path = _resolve_path(
         str(cli.get("output_path") or config.output_path),
@@ -177,6 +183,7 @@ def resolve_run_config(
         project_name=project_name,
         project_type=project_type,
         bundle=bundle,
+        targets=targets,
         output_path=output_path,
         assets_dir=assets_dir,
         manifest_path=manifest_path,
@@ -194,16 +201,7 @@ def resolve_run_config(
     )
 
 
-def plan_assets(run_config: ResolvedRunConfig) -> AssetPlan:
-    """Create the resolved output plan for the selected bundle."""
-    if run_config.bundle == "logo":
-        return AssetPlan(
-            bundle="logo",
-            assets_dir=run_config.output_path.parent,
-            manifest_path=run_config.output_path.parent / "manifest.json",
-            items=(AssetPlanItem("logo", "logo", run_config.output_path),),
-        )
-
+def _plan_legacy_core_brand(run_config: ResolvedRunConfig) -> AssetPlan:
     items: list[AssetPlanItem] = []
 
     if run_config.assets["logo"].enabled:
@@ -212,8 +210,11 @@ def plan_assets(run_config: ResolvedRunConfig) -> AssetPlan:
                 "logo",
                 "logo",
                 run_config.assets_dir / "logo" / "logo-1024.png",
+                target="shared",
+                strategy="generated",
                 width=1024,
                 height=1024,
+                aspect_ratio="1:1",
                 source_key="logo-mark",
             )
         )
@@ -224,9 +225,12 @@ def plan_assets(run_config: ResolvedRunConfig) -> AssetPlan:
                 "icon",
                 "icon",
                 run_config.assets_dir / "icon" / "icon-512.png",
+                target="shared",
+                strategy="generated_from_logo_reference",
                 width=512,
                 height=512,
-                source_key="icon-mark",
+                aspect_ratio="1:1",
+                source_key="logo-mark",
             )
         )
         items.extend(
@@ -235,6 +239,8 @@ def plan_assets(run_config: ResolvedRunConfig) -> AssetPlan:
                     "app-icons-apple-touch",
                     "app-icon",
                     run_config.assets_dir / "app-icons" / "apple-touch-icon.png",
+                    target="shared",
+                    strategy="resized_from_icon",
                     width=180,
                     height=180,
                     source_key="icon-mark",
@@ -243,6 +249,8 @@ def plan_assets(run_config: ResolvedRunConfig) -> AssetPlan:
                     "app-icons-android-192",
                     "app-icon",
                     run_config.assets_dir / "app-icons" / "android-chrome-192.png",
+                    target="shared",
+                    strategy="resized_from_icon",
                     width=192,
                     height=192,
                     source_key="icon-mark",
@@ -251,6 +259,8 @@ def plan_assets(run_config: ResolvedRunConfig) -> AssetPlan:
                     "app-icons-android-512",
                     "app-icon",
                     run_config.assets_dir / "app-icons" / "android-chrome-512.png",
+                    target="shared",
+                    strategy="resized_from_icon",
                     width=512,
                     height=512,
                     source_key="icon-mark",
@@ -265,6 +275,8 @@ def plan_assets(run_config: ResolvedRunConfig) -> AssetPlan:
                     "favicon-16",
                     "favicon",
                     run_config.assets_dir / "favicon" / "favicon-16.png",
+                    target="shared",
+                    strategy="resized_from_icon",
                     width=16,
                     height=16,
                     source_key="icon-mark",
@@ -273,6 +285,8 @@ def plan_assets(run_config: ResolvedRunConfig) -> AssetPlan:
                     "favicon-32",
                     "favicon",
                     run_config.assets_dir / "favicon" / "favicon-32.png",
+                    target="shared",
+                    strategy="resized_from_icon",
                     width=32,
                     height=32,
                     source_key="icon-mark",
@@ -281,6 +295,8 @@ def plan_assets(run_config: ResolvedRunConfig) -> AssetPlan:
                     "favicon-48",
                     "favicon",
                     run_config.assets_dir / "favicon" / "favicon-48.png",
+                    target="shared",
+                    strategy="resized_from_icon",
                     width=48,
                     height=48,
                     source_key="icon-mark",
@@ -289,6 +305,8 @@ def plan_assets(run_config: ResolvedRunConfig) -> AssetPlan:
                     "favicon-ico",
                     "favicon",
                     run_config.assets_dir / "favicon" / "favicon.ico",
+                    target="shared",
+                    strategy="resized_from_icon",
                     source_key="icon-mark",
                 ),
             ]
@@ -300,9 +318,12 @@ def plan_assets(run_config: ResolvedRunConfig) -> AssetPlan:
                 "social-card",
                 "social-card",
                 run_config.assets_dir / "social" / "social-card-1200x630.png",
+                target="shared",
+                strategy="generated_from_logo_reference",
                 width=1200,
                 height=630,
-                source_key="icon-mark",
+                aspect_ratio="40:21",
+                source_key="logo-mark",
             )
         )
 
@@ -311,6 +332,8 @@ def plan_assets(run_config: ResolvedRunConfig) -> AssetPlan:
             "manifest",
             "manifest",
             run_config.manifest_path,
+            target="shared",
+            strategy="written_metadata",
         )
     )
 
@@ -320,3 +343,226 @@ def plan_assets(run_config: ResolvedRunConfig) -> AssetPlan:
         manifest_path=run_config.manifest_path,
         items=tuple(items),
     )
+
+
+def _plan_targeted_core_brand(run_config: ResolvedRunConfig) -> AssetPlan:
+    items: list[AssetPlanItem] = []
+
+    if run_config.assets["logo"].enabled:
+        items.append(
+            AssetPlanItem(
+                "logo",
+                "logo",
+                run_config.assets_dir / "logo" / "logo-1024.png",
+                target="shared",
+                strategy="generated",
+                width=1024,
+                height=1024,
+                aspect_ratio="1:1",
+                source_key="logo-mark",
+            )
+        )
+
+    if run_config.assets["icon"].enabled:
+        items.append(
+            AssetPlanItem(
+                "icon",
+                "icon",
+                run_config.assets_dir / "icon" / "icon-1024.png",
+                target="shared",
+                strategy="generated_from_logo_reference",
+                width=1024,
+                height=1024,
+                aspect_ratio="1:1",
+                source_key="logo-mark",
+            )
+        )
+
+    if "web-seo" in run_config.targets and run_config.assets["favicon"].enabled:
+        items.extend(
+            [
+                AssetPlanItem(
+                    "web-seo-favicon-16",
+                    "favicon",
+                    run_config.assets_dir / "web-seo" / "favicon" / "favicon-16.png",
+                    target="web-seo",
+                    strategy="resized_from_icon",
+                    width=16,
+                    height=16,
+                    source_key="icon-mark",
+                ),
+                AssetPlanItem(
+                    "web-seo-favicon-32",
+                    "favicon",
+                    run_config.assets_dir / "web-seo" / "favicon" / "favicon-32.png",
+                    target="web-seo",
+                    strategy="resized_from_icon",
+                    width=32,
+                    height=32,
+                    source_key="icon-mark",
+                ),
+                AssetPlanItem(
+                    "web-seo-favicon-48",
+                    "favicon",
+                    run_config.assets_dir / "web-seo" / "favicon" / "favicon-48.png",
+                    target="web-seo",
+                    strategy="resized_from_icon",
+                    width=48,
+                    height=48,
+                    source_key="icon-mark",
+                ),
+                AssetPlanItem(
+                    "web-seo-favicon-ico",
+                    "favicon",
+                    run_config.assets_dir / "web-seo" / "favicon" / "favicon.ico",
+                    target="web-seo",
+                    strategy="resized_from_icon",
+                    source_key="icon-mark",
+                ),
+            ]
+        )
+
+    if "web-seo" in run_config.targets and run_config.assets["icon"].enabled:
+        items.extend(
+            [
+                AssetPlanItem(
+                    "web-seo-apple-touch-icon",
+                    "app-icon",
+                    run_config.assets_dir / "web-seo" / "apple-touch-icon.png",
+                    target="web-seo",
+                    strategy="resized_from_icon",
+                    width=180,
+                    height=180,
+                    source_key="icon-mark",
+                ),
+                AssetPlanItem(
+                    "web-seo-android-chrome-192",
+                    "app-icon",
+                    run_config.assets_dir / "web-seo" / "android-chrome-192.png",
+                    target="web-seo",
+                    strategy="resized_from_icon",
+                    width=192,
+                    height=192,
+                    source_key="icon-mark",
+                ),
+                AssetPlanItem(
+                    "web-seo-android-chrome-512",
+                    "app-icon",
+                    run_config.assets_dir / "web-seo" / "android-chrome-512.png",
+                    target="web-seo",
+                    strategy="resized_from_icon",
+                    width=512,
+                    height=512,
+                    source_key="icon-mark",
+                ),
+            ]
+        )
+
+    if "web-seo" in run_config.targets and run_config.assets["social_card"].enabled:
+        items.append(
+            AssetPlanItem(
+                "web-seo-og-image",
+                "social-card",
+                run_config.assets_dir / "web-seo" / "og-image-1200x630.png",
+                target="web-seo",
+                strategy="generated_from_logo_reference",
+                width=1200,
+                height=630,
+                aspect_ratio="40:21",
+                source_key="logo-mark",
+            )
+        )
+
+    if "web-seo" in run_config.targets and run_config.assets["icon"].enabled:
+        items.append(
+            AssetPlanItem(
+                "web-seo-site-webmanifest",
+                "metadata",
+                run_config.assets_dir / "web-seo" / "site.webmanifest",
+                target="web-seo",
+                strategy="written_metadata",
+            )
+        )
+
+    if "google-play" in run_config.targets and run_config.assets["icon"].enabled:
+        items.append(
+            AssetPlanItem(
+                "google-play-icon",
+                "app-icon",
+                run_config.assets_dir / "google-play" / "google-play-icon-512.png",
+                target="google-play",
+                strategy="resized_from_icon",
+                width=512,
+                height=512,
+                source_key="icon-mark",
+            )
+        )
+
+    if "google-play" in run_config.targets and run_config.assets["social_card"].enabled:
+        items.append(
+            AssetPlanItem(
+                "google-play-feature-graphic",
+                "feature-graphic",
+                run_config.assets_dir / "google-play" / "feature-graphic-1024x500.png",
+                target="google-play",
+                strategy="generated_from_logo_reference",
+                width=1024,
+                height=500,
+                aspect_ratio="256:125",
+                source_key="logo-mark",
+            )
+        )
+
+    if "apple-store" in run_config.targets and run_config.assets["icon"].enabled:
+        items.append(
+            AssetPlanItem(
+                "apple-store-app-store-icon",
+                "app-icon",
+                run_config.assets_dir / "apple-store" / "app-store-icon-1024.png",
+                target="apple-store",
+                strategy="resized_from_icon",
+                width=1024,
+                height=1024,
+                source_key="icon-mark",
+            )
+        )
+
+    items.append(
+        AssetPlanItem(
+            "manifest",
+            "manifest",
+            run_config.manifest_path,
+            target="shared",
+            strategy="written_metadata",
+        )
+    )
+
+    return AssetPlan(
+        bundle="core-brand",
+        assets_dir=run_config.assets_dir,
+        manifest_path=run_config.manifest_path,
+        items=tuple(items),
+    )
+
+
+def plan_assets(run_config: ResolvedRunConfig) -> AssetPlan:
+    """Create the resolved output plan for the selected bundle."""
+    if run_config.bundle == "logo":
+        return AssetPlan(
+            bundle="logo",
+            assets_dir=run_config.output_path.parent,
+            manifest_path=run_config.output_path.parent / "manifest.json",
+            items=(
+                AssetPlanItem(
+                    "logo",
+                    "logo",
+                    run_config.output_path,
+                    target="shared",
+                    strategy="generated",
+                    aspect_ratio="1:1",
+                ),
+            ),
+        )
+    if run_config.targets:
+        return _plan_targeted_core_brand(run_config)
+    return _plan_legacy_core_brand(run_config)

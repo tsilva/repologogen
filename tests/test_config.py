@@ -28,6 +28,7 @@ class TestConfigModel:
         assert config.style == "minimalist"
         assert config.key_color == "#00FF00"
         assert config.output_path == "logo.png"
+        assert config.targets == []
         assert config.trim is True
         assert config.compress is True
         assert config.refine_prompt is True
@@ -83,6 +84,12 @@ class TestSchemaValidation:
         valid_config = get_bundled_defaults()
         # Should not raise
         validate_config(valid_config)
+
+    def test_targets_must_be_known(self):
+        invalid_config = {**get_bundled_defaults(), "targets": ["desktop"]}
+        with pytest.raises(ConfigValidationError) as exc_info:
+            validate_config(invalid_config)
+        assert "targets" in str(exc_info.value)
 
     def test_partial_override_config_passes(self):
         """Test that partial override configs are allowed."""

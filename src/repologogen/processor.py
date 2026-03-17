@@ -1,5 +1,6 @@
 """Image processing utilities for chromakey transparency and brand asset exports."""
 
+import json
 import shutil
 import tempfile
 from collections.abc import Iterable
@@ -275,6 +276,28 @@ def compose_social_card(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     canvas.convert("RGB").save(output_path, "PNG")
     return {"path": str(output_path), "size": (width, height)}
+
+
+def write_site_webmanifest(
+    output_path: Path,
+    *,
+    name: str,
+    description: str,
+    icons: list[dict[str, str]],
+) -> dict[str, object]:
+    """Write a minimal web app manifest for SEO/web install surfaces."""
+    payload = {
+        "name": name,
+        "short_name": name,
+        "description": description,
+        "icons": icons,
+        "background_color": "#ffffff",
+        "theme_color": "#ffffff",
+        "display": "standalone",
+    }
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return {"path": str(output_path)}
 
 
 def get_image_info(path: Path) -> dict[str, object]:

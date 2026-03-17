@@ -34,15 +34,21 @@ class TestResolveRunConfig:
         assert resolved.assets["icon"].visual_metaphor
 
     def test_cli_overrides_win(self, tmp_path):
-        config = Config(style="global-style", model="global-model")
+        config = Config(style="global-style", model="global-model", targets=["web-seo"])
         resolved = resolve_run_config(
             config,
             tmp_path,
             "python",
-            cli_overrides={"style": "cli-style", "model": "cli-model", "bundle": "core-brand"},
+            cli_overrides={
+                "style": "cli-style",
+                "model": "cli-model",
+                "bundle": "core-brand",
+                "targets": ["google-play"],
+            },
         )
 
         assert resolved.bundle == "core-brand"
+        assert resolved.targets == ("google-play",)
         assert resolved.assets["logo"].style == "cli-style"
         assert resolved.assets["icon"].model == "cli-model"
 
@@ -88,8 +94,12 @@ class TestPlanAssets:
         assert "social/social-card-1200x630.png" in {str(path) for path in paths}
         source_keys = {item.key: item.source_key for item in plan.items}
         assert source_keys["logo"] == "logo-mark"
-        assert source_keys["icon"] == "icon-mark"
-        assert source_keys["social-card"] == "icon-mark"
+        assert source_keys["icon"] == "logo-mark"
+        assert source_keys["social-card"] == "logo-mark"
+        strategies = {item.key: item.strategy for item in plan.items}
+        assert strategies["icon"] == "generated_from_logo_reference"
+        assert strategies["favicon-16"] == "resized_from_icon"
+        assert strategies["social-card"] == "generated_from_logo_reference"
 
     def test_disabled_assets_are_skipped(self, tmp_path):
         config = Config(
@@ -105,3 +115,25 @@ class TestPlanAssets:
         plan = plan_assets(run_config)
 
         assert all(item.kind != "social-card" for item in plan.items)
+
+    def test_targeted_core_brand_uses_platform_layout(self, tmp_path):
+        run_config = resolve_run_config(
+            Config(bundle="core-brand", targets=["web-seo", "google-play", "apple-store"]),
+            tmp_path,
+            "python",
+            cli_overrides={"bundle": "core-brand"},
+        )
+
+        plan = plan_assets(run_config)
+        paths = {str(item.output_path.relative_to(run_config.assets_dir)) for item in plan.items}
+        strategies = {item.key: item.strategy for item in plan.items}
+
+        assert "logo/logo-1024.png" in paths
+        assert "icon/icon-1024.png" in paths
+        assert "web-seo/og-image-1200x630.png" in paths
+        assert "web-seo/site.webmanifest" in paths
+        assert "google-play/feature-graphic-1024x500.png" in paths
+        assert "apple-store/app-store-icon-1024.png" in paths
+        assert strategies["web-seo-og-image"] == "generated_from_logo_reference"
+        assert strategies["web-seo-android-chrome-512"] == "resized_from_icon"
+        assert strategies["web-seo-site-webmanifest"] == "written_metadata"

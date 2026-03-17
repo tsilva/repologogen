@@ -14,7 +14,13 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
-from repologogen.config import ConfigValidationError, expand_path, get_api_key, load_merged_config
+from repologogen.config import (
+    TARGET_NAMES,
+    ConfigValidationError,
+    expand_path,
+    get_api_key,
+    load_merged_config,
+)
 from repologogen.detector import detect_project, find_readme
 from repologogen.generator import (
     ImageGenerator,
@@ -32,12 +38,12 @@ from repologogen.planner import (
 )
 from repologogen.processor import (
     chromakey_to_transparent,
-    compose_social_card,
     compress_png,
     export_favicon_set,
     get_image_info,
     resize_png,
     trim_transparent,
+    write_site_webmanifest,
 )
 
 console = Console()
@@ -94,10 +100,14 @@ def _build_asset_prompt(
     key_color: str,
     template_vars: dict[str, str] | None,
     purpose: str = "default",
+    metadata: dict[str, Any] | None = None,
 ) -> str:
     additional_instructions = asset_config.additional_instructions
+    prompt_template = asset_config.prompt_template
+    include_repo_name = asset_config.include_repo_name
     if purpose == "icon-mark":
         icon_focus = (
+            "Use the provided reference logo as the brand source. "
             "Create a single bold symbol extracted from the main brand idea. "
             "No text, letters, words, banners, mascots with tiny details, "
             "or multiple competing elements. "
@@ -109,6 +119,50 @@ def _build_asset_prompt(
             if additional_instructions
             else icon_focus
         )
+    elif purpose == "web-seo-social":
+        prompt_template = (
+            "A {STYLE} marketing graphic for {PROJECT_NAME}.{PROJECT_DESCRIPTION} "
+            "{VISUAL_METAPHOR}.\n"
+            "Brand palette from: {ICON_COLORS}.\n"
+            "{TEXT_INSTRUCTIONS} Full-bleed composition sized for social sharing. "
+            "No chromakey background, no transparency requirement."
+        )
+        include_repo_name = True
+        social_title = (metadata or {}).get("social_title", project_name)
+        social_description = (metadata or {}).get(
+            "social_description",
+            project_description or project_name,
+        )
+        social_instructions = (
+            f'Use "{social_title}" as the primary headline. '
+            f'Include this supporting line or close paraphrase: "{social_description}". '
+            "Make the typography prominent and readable in a link preview."
+        )
+        additional_instructions = (
+            f"{additional_instructions}\n{social_instructions}".strip()
+            if additional_instructions
+            else social_instructions
+        )
+    elif purpose == "google-play-feature":
+        prompt_template = (
+            "A {STYLE} Google Play feature graphic for {PROJECT_NAME}.{PROJECT_DESCRIPTION} "
+            "{VISUAL_METAPHOR}.\n"
+            "Brand palette from: {ICON_COLORS}.\n"
+            "{TEXT_INSTRUCTIONS} Wide promotional artwork that feels native to an app store. "
+            "No chromakey background, no transparency requirement."
+        )
+        include_repo_name = True
+        social_title = (metadata or {}).get("social_title", project_name)
+        feature_instructions = (
+            f'Use "{social_title}" as the main marketing title. '
+            "Preserve the reference logo's visual identity while expanding it into a wide, "
+            "store-ready promotional composition."
+        )
+        additional_instructions = (
+            f"{additional_instructions}\n{feature_instructions}".strip()
+            if additional_instructions
+            else feature_instructions
+        )
 
     return build_prompt(
         project_name=project_name,
@@ -116,9 +170,9 @@ def _build_asset_prompt(
         icon_colors=asset_config.icon_colors,
         key_color=key_color,
         visual_metaphor=asset_config.visual_metaphor,
-        include_repo_name=asset_config.include_repo_name,
+        include_repo_name=include_repo_name,
         additional_instructions=additional_instructions,
-        prompt_template=asset_config.prompt_template,
+        prompt_template=prompt_template,
         template_vars=template_vars,
         project_description=project_description,
     )
@@ -131,8 +185,9 @@ def _maybe_refine_prompt(
     target_model: str,
     project_path: Path,
     text_model: str,
+    reference_based: bool = False,
 ) -> str:
-    if not should_refine:
+    if not should_refine or reference_based:
         return prompt
 
     api_key = get_api_key(project_path)
@@ -143,35 +198,15 @@ def _maybe_refine_prompt(
 
 
 def _print_asset_settings(run_config: Any, plan: AssetPlan) -> None:
-    table = Table(title="Resolved Asset Settings")
-    table.add_column("Asset")
-    table.add_column("Enabled")
-    table.add_column("Model")
-    table.add_column("Style")
+    table = Table(title="Resolved Asset Plan")
+    table.add_column("Key")
+    table.add_column("Target")
+    table.add_column("Strategy")
     table.add_column("Output")
 
-    seen_assets = set()
+    del run_config
     for item in plan.items:
-        asset_name = item.key.split("-")[0]
-        if asset_name in {"app", "manifest"}:
-            continue
-        if asset_name == "social":
-            asset_name = "social_card"
-        if asset_name in seen_assets or asset_name not in run_config.assets:
-            continue
-        asset = run_config.assets[asset_name]
-        asset_prefix = asset_name.replace("_card", "")
-        output_path = next(
-            entry.output_path for entry in plan.items if entry.key.startswith(asset_prefix)
-        )
-        table.add_row(
-            asset_name,
-            "yes" if asset.enabled else "no",
-            asset.model,
-            asset.style,
-            str(output_path),
-        )
-        seen_assets.add(asset_name)
+        table.add_row(item.key, item.target, item.strategy, str(item.output_path))
 
     console.print(table)
 
@@ -187,6 +222,8 @@ def _print_dry_run_summary(
     console.print(f"  Type: [green]{run_config.project_type}[/green]")
     console.print(f"  Bundle: [green]{run_config.bundle}[/green]")
     console.print(f"  Config sources: [green]{', '.join(run_config.sources)}[/green]")
+    if run_config.targets:
+        console.print(f"  Targets: [green]{', '.join(run_config.targets)}[/green]")
     if run_config.bundle == "logo":
         console.print(f"  Output: [green]{run_config.output_path}[/green]")
     else:
@@ -238,15 +275,19 @@ def _collect_metadata(
 def _apply_post_processing(
     run_config: Any,
     image_path: Path,
+    *,
+    remove_background: bool = True,
 ) -> dict[str, Any]:
-    chromakey_result = chromakey_to_transparent(
-        image_path,
-        image_path,
-        key_color=run_config.key_color,
-        tolerance=run_config.tolerance,
-    )
+    chromakey_result: dict[str, Any] = {"processed": False}
+    if remove_background:
+        chromakey_result = chromakey_to_transparent(
+            image_path,
+            image_path,
+            key_color=run_config.key_color,
+            tolerance=run_config.tolerance,
+        )
 
-    if run_config.trim:
+    if remove_background and run_config.trim:
         trim_transparent(image_path, image_path, margin=run_config.trim_margin)
 
     if run_config.compress:
@@ -330,6 +371,8 @@ def _build_manifest(
         entry: dict[str, Any] = {
             "key": item.key,
             "kind": item.kind,
+            "target": item.target,
+            "strategy": item.strategy,
             "path": str(item.output_path.relative_to(root)),
         }
         if item.width and item.height:
@@ -340,13 +383,24 @@ def _build_manifest(
         "project_name": run_config.project_name,
         "project_type": run_config.project_type,
         "bundle": run_config.bundle,
+        "targets": list(run_config.targets),
         "sources": list(run_config.sources),
         "metadata": metadata,
         "assets": assets,
     }
 
 
-def _generate_master_asset(
+def _purpose_for_plan_item(item: Any) -> str:
+    if item.kind == "icon":
+        return "icon-mark"
+    if item.kind == "feature-graphic":
+        return "google-play-feature"
+    if item.kind == "social-card":
+        return "web-seo-social"
+    return "logo-mark"
+
+
+def _generate_asset(
     generator: ImageGenerator,
     run_config: Any,
     *,
@@ -357,6 +411,10 @@ def _generate_master_asset(
     purpose: str,
     progress: Progress,
     task_label: str,
+    metadata: dict[str, Any] | None = None,
+    reference_images: list[Path] | None = None,
+    aspect_ratio: str = "1:1",
+    remove_background: bool = True,
 ) -> None:
     raw_prompt = _build_asset_prompt(
         asset_config,
@@ -365,6 +423,7 @@ def _generate_master_asset(
         key_color=run_config.key_color,
         template_vars=template_vars,
         purpose=purpose,
+        metadata=metadata,
     )
     prompt = _maybe_refine_prompt(
         raw_prompt,
@@ -372,6 +431,7 @@ def _generate_master_asset(
         target_model=asset_config.model,
         project_path=run_config.project_path,
         text_model=run_config.text_model,
+        reference_based=bool(reference_images),
     )
 
     console.print(f"\n[bold blue]{task_label} Prompt:[/bold blue]")
@@ -383,14 +443,55 @@ def _generate_master_asset(
         model=asset_config.model,
         output_path=output_path,
         size=asset_config.size,
+        aspect_ratio=aspect_ratio,
+        reference_images=reference_images,
     )
     progress.update(task, completed=True)
 
-    task = progress.add_task(
-        f"[green]Applying transparency to {task_label.lower()}...", total=None
+    task_label_text = (
+        f"[green]Applying transparency to {task_label.lower()}..."
+        if remove_background
+        else f"[green]Finalizing {task_label.lower()}..."
     )
-    _apply_post_processing(run_config, output_path)
+    task = progress.add_task(task_label_text, total=None)
+    _apply_post_processing(run_config, output_path, remove_background=remove_background)
     progress.update(task, completed=True)
+
+
+def _write_web_target_manifest(
+    run_config: Any,
+    plan: AssetPlan,
+    metadata: dict[str, Any],
+    project_description: str,
+) -> None:
+    webmanifest_item = next(
+        (item for item in plan.items if item.key == "web-seo-site-webmanifest"),
+        None,
+    )
+    if webmanifest_item is None:
+        return
+
+    icons: list[dict[str, str]] = []
+    for item in plan.items:
+        if item.target != "web-seo":
+            continue
+        if item.key == "web-seo-android-chrome-192":
+            icons.append(
+                {"src": "android-chrome-192.png", "sizes": "192x192", "type": "image/png"}
+            )
+        elif item.key == "web-seo-android-chrome-512":
+            icons.append(
+                {"src": "android-chrome-512.png", "sizes": "512x512", "type": "image/png"}
+            )
+
+    write_site_webmanifest(
+        webmanifest_item.output_path,
+        name=str(metadata.get("title") or run_config.project_name),
+        description=str(
+            metadata.get("short_description") or project_description or run_config.project_name
+        ),
+        icons=icons,
+    )
 
 
 def _generate_core_brand(
@@ -402,6 +503,13 @@ def _generate_core_brand(
     metadata: dict[str, Any],
 ) -> int:
     run_config.assets_dir.mkdir(parents=True, exist_ok=True)
+    requires_logo = any(
+        item.source_key == "logo-mark" for item in plan.items if item.kind != "manifest"
+    )
+    if requires_logo and not run_config.assets["logo"].enabled:
+        raise ImageGeneratorError(
+            "Core brand generation requires the logo asset to remain enabled."
+        )
 
     with (
         tempfile.TemporaryDirectory(prefix="repologogen-") as temp_dir,
@@ -414,9 +522,11 @@ def _generate_core_brand(
         temp_root = Path(temp_dir)
         logo_master_path = temp_root / "logo-master.png"
         icon_master_path = temp_root / "icon-master.png"
+        logo_item = next((item for item in plan.items if item.kind == "logo"), None)
+        icon_item = next((item for item in plan.items if item.kind == "icon"), None)
 
-        if run_config.assets["logo"].enabled:
-            _generate_master_asset(
+        if logo_item:
+            _generate_asset(
                 generator,
                 run_config,
                 asset_config=run_config.assets["logo"],
@@ -427,12 +537,19 @@ def _generate_core_brand(
                 progress=progress,
                 task_label="Primary Logo",
             )
+            resize_png(
+                logo_master_path,
+                logo_item.output_path,
+                (logo_item.width or 1024, logo_item.height or 1024),
+            )
 
         icon_source_required = any(
-            item.source_key == "icon-mark" and item.kind != "manifest" for item in plan.items
+            item.source_key == "icon-mark"
+            for item in plan.items
+            if item.kind not in {"manifest", "metadata"}
         )
         if icon_source_required:
-            _generate_master_asset(
+            _generate_asset(
                 generator,
                 run_config,
                 asset_config=run_config.assets["icon"],
@@ -442,54 +559,52 @@ def _generate_core_brand(
                 purpose="icon-mark",
                 progress=progress,
                 task_label="Icon Mark",
+                reference_images=[logo_master_path],
             )
+            if icon_item:
+                resize_png(
+                    icon_master_path,
+                    icon_item.output_path,
+                    (icon_item.width or 1024, icon_item.height or 1024),
+                )
+
+        favicon_dirs = {item.output_path.parent for item in plan.items if item.kind == "favicon"}
+        for favicon_dir in favicon_dirs:
+            export_favicon_set(icon_master_path, favicon_dir)
 
         for item in plan.items:
-            if item.kind == "logo":
-                resize_png(
-                    logo_master_path,
-                    item.output_path,
-                    (item.width or 1024, item.height or 1024),
-                )
-            elif item.kind in {"icon", "app-icon"}:
+            if item.kind in {"manifest", "metadata", "logo", "icon", "favicon"}:
+                continue
+            if item.strategy == "resized_from_icon":
                 resize_png(
                     icon_master_path,
                     item.output_path,
                     (item.width or 512, item.height or 512),
                 )
-            elif item.kind == "favicon":
-                if item.output_path.suffix == ".ico":
-                    continue
-                resize_png(
-                    icon_master_path,
-                    item.output_path,
-                    (item.width or 32, item.height or 32),
+            elif item.strategy == "generated_from_logo_reference":
+                asset_name = (
+                    "social_card"
+                    if item.kind in {"social-card", "feature-graphic"}
+                    else item.kind
+                )
+                _generate_asset(
+                    generator,
+                    run_config,
+                    asset_config=run_config.assets[asset_name],
+                    output_path=item.output_path,
+                    template_vars=template_vars,
+                    project_description=project_description,
+                    purpose=_purpose_for_plan_item(item),
+                    progress=progress,
+                    task_label=item.key.replace("-", " ").title(),
+                    metadata=metadata,
+                    reference_images=[logo_master_path],
+                    aspect_ratio=item.aspect_ratio or "1:1",
+                    remove_background=False,
                 )
 
-        favicon_dir = run_config.assets_dir / "favicon"
-        if run_config.assets["favicon"].enabled:
-            export_favicon_set(icon_master_path, favicon_dir)
-
-        if run_config.assets["social_card"].enabled:
-            social_path = run_config.assets_dir / "social" / "social-card-1200x630.png"
-            compose_social_card(
-                icon_master_path,
-                social_path,
-                project_name=run_config.project_name,
-                title=metadata.get("social_title", run_config.project_name),
-                description=metadata.get(
-                    "social_description",
-                    project_description or run_config.project_name,
-                ),
-                accent_color=(
-                    run_config.assets["icon"].icon_colors[0]
-                    if (
-                        isinstance(run_config.assets["icon"].icon_colors, list)
-                        and run_config.assets["icon"].icon_colors
-                    )
-                    else "#58a6ff"
-                ),
-            )
+        if run_config.targets:
+            _write_web_target_manifest(run_config, plan, metadata, project_description)
 
     manifest = _build_manifest(run_config, plan, metadata)
     run_config.manifest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -509,6 +624,7 @@ def run_generation(
     dry_run: bool = False,
     template_vars: dict[str, str] | None = None,
     bundle: str | None = None,
+    targets: list[str] | None = None,
     assets_dir: str | None = None,
     manifest_path: str | None = None,
     output_path: str | None = None,
@@ -539,6 +655,7 @@ def run_generation(
 
     cli_overrides = {
         "bundle": bundle,
+        "targets": targets,
         "assets_dir": assets_dir,
         "manifest_path": manifest_path,
         "output_path": output_path,
@@ -558,6 +675,11 @@ def run_generation(
 
     if run_config.bundle != "logo" and output_path:
         console.print("[bold red]Error:[/bold red] --output can only be used with the logo bundle")
+        return 1
+    if run_config.bundle == "logo" and run_config.targets:
+        console.print(
+            "[bold red]Error:[/bold red] --target can only be used with the core-brand bundle"
+        )
         return 1
 
     plan = plan_assets(run_config)
@@ -626,6 +748,12 @@ def main() -> int:
         choices=["logo", "core-brand"],
         help="Bundle to generate (default: logo)",
     )
+    parser.add_argument(
+        "--target",
+        action="append",
+        choices=list(TARGET_NAMES),
+        help="Target platform asset pack (repeatable, core-brand only)",
+    )
     parser.add_argument("-o", "--output", help="Override output path for logo bundle")
     parser.add_argument("--assets-dir", help="Override output directory for bundle assets")
     parser.add_argument("--manifest", help="Override manifest path for bundle assets")
@@ -670,6 +798,7 @@ def main() -> int:
         dry_run=args.dry_run,
         template_vars=template_vars,
         bundle=args.bundle,
+        targets=args.target,
         assets_dir=args.assets_dir,
         manifest_path=args.manifest,
         output_path=args.output,
