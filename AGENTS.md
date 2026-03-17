@@ -27,7 +27,7 @@ CLI tool that generates professional logos with transparent backgrounds via Open
 
 **Runtime config**: built-in defaults + command-line overrides only
 
-**API key sources** (checked in order): `OPENROUTER_API_KEY` env var
+**API key sources** (checked in order): `OPENROUTER_API_KEY` env var → `~/.config/repologogen/.env`
 
 ## Code Style
 

@@ -258,6 +258,32 @@ def load_yaml_file(path: Path, validate_schema: bool = True) -> dict[str, Any]:
     return data
 
 
+def _load_env_file_value(path: Path, key: str) -> str | None:
+    """Read a single variable from a simple dotenv-style file."""
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+
+    for raw_line in lines:
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[len("export ") :].strip()
+        if "=" not in line:
+            continue
+        name, value = line.split("=", 1)
+        if name.strip() != key:
+            continue
+        parsed = value.strip()
+        if len(parsed) >= 2 and parsed[0] == parsed[-1] and parsed[0] in {'"', "'"}:
+            parsed = parsed[1:-1]
+        return parsed or None
+
+    return None
+
+
 def expand_path(path: str) -> Path:
     """Expand environment variables and user home in path."""
     return Path(os.path.expandvars(os.path.expanduser(path)))
@@ -340,6 +366,11 @@ def load_merged_config(
 
 
 def get_api_key(project_path: Path | None = None) -> str | None:
-    """Get OpenRouter API key from environment only."""
+    """Get OpenRouter API key from environment or ~/.config/repologogen/.env."""
     del project_path
-    return os.getenv("OPENROUTER_API_KEY")
+    api_key = os.getenv("OPENROUTER_API_KEY")
+    if api_key:
+        return api_key
+
+    env_file = Path(os.path.expanduser("~/.config/repologogen/.env"))
+    return _load_env_file_value(env_file, "OPENROUTER_API_KEY")

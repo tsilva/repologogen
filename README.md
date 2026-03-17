@@ -48,6 +48,13 @@ Set the API key:
 export OPENROUTER_API_KEY="your-key"
 ```
 
+Or write it to `~/.config/repologogen/.env`:
+
+```bash
+mkdir -p ~/.config/repologogen
+printf 'OPENROUTER_API_KEY="your-key"\n' > ~/.config/repologogen/.env
+```
+
 Or install from source:
 
 ```bash
@@ -84,6 +91,13 @@ $repologogen generate web branding for this repo
 
 ```bash
 export OPENROUTER_API_KEY="your-key"
+```
+
+Or:
+
+```bash
+mkdir -p ~/.config/repologogen
+printf 'OPENROUTER_API_KEY="your-key"\n' > ~/.config/repologogen/.env
 ```
 
 **2. Generate:**

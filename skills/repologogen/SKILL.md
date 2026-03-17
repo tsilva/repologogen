@@ -9,7 +9,7 @@ Use `repologogen` as a CLI-first branding workflow.
 
 ## Preconditions
 
-- `OPENROUTER_API_KEY` must be set in the environment.
+- `OPENROUTER_API_KEY` must be set in the environment or in `~/.config/repologogen/.env`.
 - Prefer the installed `repologogen` command on `PATH`.
 - Do not use project or user settings files. This tool is CLI/env only.
 

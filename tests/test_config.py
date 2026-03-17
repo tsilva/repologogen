@@ -447,12 +447,26 @@ class TestGetApiKey:
 
     def test_prefers_environment_variable(self, tmp_path, monkeypatch):
         monkeypatch.setenv("OPENROUTER_API_KEY", "env-key")
-        (tmp_path / ".config.yaml").write_text("openrouter_api_key: project-key\n")
+        env_dir = tmp_path / ".config" / "repologogen"
+        env_dir.mkdir(parents=True)
+        (env_dir / ".env").write_text('OPENROUTER_API_KEY="file-key"\n')
+        monkeypatch.setenv("HOME", str(tmp_path))
 
         assert get_api_key(tmp_path) == "env-key"
 
-    def test_returns_none_when_env_missing(self, tmp_path, monkeypatch):
+    def test_reads_dotenv_fallback_when_env_missing(self, tmp_path, monkeypatch):
         monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
-        (tmp_path / ".config.yaml").write_text("openrouter_api_key: project-key\n")
+        monkeypatch.setenv("HOME", str(tmp_path))
+        env_dir = tmp_path / ".config" / "repologogen"
+        env_dir.mkdir(parents=True)
+        (env_dir / ".env").write_text(
+            "# comment\nexport OPENROUTER_API_KEY='file-key'\nOTHER=value\n"
+        )
+
+        assert get_api_key(tmp_path) == "file-key"
+
+    def test_returns_none_when_no_env_source_exists(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+        monkeypatch.setenv("HOME", str(tmp_path))
 
         assert get_api_key(tmp_path) is None
