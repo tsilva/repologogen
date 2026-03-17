@@ -176,7 +176,7 @@ assets:
 | `size` | `1K` | Image size (`1K`, `2K`, etc.) |
 | `style` | `bold, cinematic, sensory-rich brand icon` | Logo style descriptor |
 | `visual_metaphor` | `null` | Custom visual metaphor (`null` = auto-detect, `none` = abstract) |
-| `include_repo_name` | `false` | Include project name as text in logo |
+| `include_repo_name` | `false` | Include project name as text in generated assets. The primary logo always includes the project name. |
 | `icon_colors` | `["#58a6ff", ...]` | Color palette (array or string) |
 | `key_color` | `#00FF00` | Chromakey background color |
 | `tolerance` | `70` | Chromakey edge detection tolerance (0–255) |
@@ -207,6 +207,8 @@ Supported override keys per asset:
 - `model`
 - `size`
 - `prompt_template`
+
+The primary `logo` asset always includes the project/repo name so README and top-level branding stay identifiable. `icon` and `favicon` stay text-free in the `core-brand` bundle.
 
 `assets.social_card` controls the wide text-bearing graphics, including the `web-seo` OG image and Google Play feature graphic.
 The `web-seo` OG image uses a typical preview-card layout: one short headline plus an optional short tagline.

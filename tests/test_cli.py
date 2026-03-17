@@ -142,6 +142,8 @@ class TestRunGeneration:
         assert (tmp_path / "repologogen-assets" / "logo" / "logo-1024.png").exists()
         assert (tmp_path / "repologogen-assets" / "web-seo" / "og-image-1200x630.png").exists()
         assert len(DummyGenerator.prompts) == 3
+        assert 'Include "' in DummyGenerator.prompts[0]["prompt"]
+        assert '" as stylized text' in DummyGenerator.prompts[0]["prompt"]
         assert "single bold symbol" in DummyGenerator.prompts[1]["prompt"]
         assert "legible at 16x16 and 32x32" in DummyGenerator.prompts[1]["prompt"]
         assert len(DummyGenerator.prompts[1]["reference_images"]) == 1
@@ -284,6 +286,7 @@ class TestRunGeneration:
         assert DummyGenerator.prompts
         prompt = DummyGenerator.prompts[0]["prompt"]
         assert "bold, cinematic, sensory-rich brand icon" in prompt
-        assert "Include \"demo\" as stylized text" not in prompt
+        assert 'Include "' in prompt
+        assert '" as stylized text' in prompt
         assert "noisy style" not in prompt
         assert "noisy extra" not in prompt

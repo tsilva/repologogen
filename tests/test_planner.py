@@ -14,6 +14,7 @@ class TestResolveRunConfig:
         assert resolved.bundle == "logo"
         assert resolved.output_path == tmp_path / "logo.png"
         assert resolved.assets["logo"].style == "bold, cinematic, sensory-rich brand icon"
+        assert resolved.assets["logo"].include_repo_name is True
 
     def test_asset_overrides_inherit_from_globals(self, tmp_path):
         config = Config(
@@ -53,7 +54,7 @@ class TestResolveRunConfig:
         assert resolved.assets["icon"].model == "cli-model"
 
     def test_core_brand_disables_repo_name_only_for_small_assets(self, tmp_path):
-        config = Config(include_repo_name=True)
+        config = Config(include_repo_name=False)
         resolved = resolve_run_config(
             config,
             tmp_path,

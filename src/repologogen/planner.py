@@ -125,6 +125,10 @@ def _resolve_asset_config(
     )
     include_repo_name = bool(overrides.get("include_repo_name", config.include_repo_name))
 
+    # The main logo is used directly in README/project branding and must carry the name.
+    if name == "logo":
+        include_repo_name = True
+
     # Small assets in the brand bundle should always use a text-free symbol.
     if bundle == "core-brand" and name in {"icon", "favicon"}:
         include_repo_name = False
