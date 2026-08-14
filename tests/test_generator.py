@@ -285,7 +285,7 @@ class TestDigestReadme:
             # Verify the API was called with correct model
             call_args = mock_client.post.call_args
             payload = call_args[1]["json"]
-            assert payload["model"] == "google/gemini-3-flash-preview"
+            assert payload["model"] == "google/gemini-3.7-flash"
 
     def test_returns_empty_on_api_error(self):
         """Test graceful fallback on API error."""

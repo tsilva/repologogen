@@ -261,7 +261,7 @@ def build_prompt(
 def digest_readme(
     readme_content: str,
     api_key: str,
-    text_model: str = "google/gemini-3-flash-preview",
+    text_model: str = "google/gemini-3.7-flash",
     base_url: str = "https://openrouter.ai/api/v1",
 ) -> str:
     """Send README content to an LLM to produce a concise project description.
@@ -318,7 +318,7 @@ def extract_repo_metadata(
     project_type: str,
     *,
     project_description: str = "",
-    text_model: str = "google/gemini-3-flash-preview",
+    text_model: str = "google/gemini-3.7-flash",
     base_url: str = "https://openrouter.ai/api/v1",
 ) -> dict[str, Any]:
     """Extract minimal reusable metadata fields for bundle manifests."""
@@ -382,7 +382,7 @@ def refine_prompt(
     raw_prompt: str,
     target_model: str,
     api_key: str,
-    text_model: str = "google/gemini-3-flash-preview",
+    text_model: str = "google/gemini-3.7-flash",
     base_url: str = "https://openrouter.ai/api/v1",
 ) -> str:
     """Refine an image-generation prompt via LLM to remove redundancy and contradictions.
