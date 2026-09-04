@@ -52,7 +52,7 @@ class Config:
     """Configuration for logo and asset generation."""
 
     model: str = "google/gemini-3-pro-image-preview"
-    text_model: str = "google/gemini-3.7-flash"
+    text_model: str = "google/gemini-3.8-flash"
     size: str = "1K"
     prompt_template: str | None = None
     style: str = "bold, cinematic, sensory-rich brand icon"
@@ -305,7 +305,7 @@ def get_bundled_defaults() -> dict[str, Any]:
     """Load bundled default configuration."""
     return {
         "model": "google/gemini-3-pro-image-preview",
-        "text_model": "google/gemini-3.7-flash",
+        "text_model": "google/gemini-3.8-flash",
         "size": "1K",
         "prompt_template": None,
         "style": "bold, cinematic, sensory-rich brand icon",
