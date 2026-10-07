@@ -1,8 +1,10 @@
-<div align="center">
+<p align="center">
   <img src="./logo.png" alt="repologogen" width="420" />
-
-  **🎨 Generate repo logos, brand packs, and platform assets from the command line ✨**
-</div>
+  <br />
+  <!-- repo-tagline:start -->
+  <strong>🎨 Generate repository logos, brand packs, and platform assets ✨</strong>
+  <!-- repo-tagline:end -->
+</p>
 
 repologogen is a Python CLI for generating repository logos and brand asset packs through
 OpenRouter image models. Point it at a project, and it detects the project type, builds a
