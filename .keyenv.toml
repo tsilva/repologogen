@@ -1,7 +1,7 @@
-# Credential references only. Store values with `keyenv set ENV_NAME`.
+# Optional gateway authentication only.
 [keyenv]
 version = 1
 
-[secrets.OPENROUTER_API_KEY]
-account = "repologogen/OPENROUTER_API_KEY"
-required = true
+[secrets.AGENTBRIDGE_API_KEY]
+account = "repologogen/AGENTBRIDGE_API_KEY"
+required = false

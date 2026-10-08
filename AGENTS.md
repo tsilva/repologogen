@@ -15,19 +15,21 @@ This file provides guidance to Claude Code when working in this repository.
 
 ## Architecture
 
-CLI tool that generates professional logos with transparent backgrounds via OpenRouter API.
+CLI tool that generates professional logos with transparent backgrounds using OpenRouter models
+through AgentBridge.
 
 **Module pipeline**: `cli.py` → `config.py` → `detector.py` → `generator.py` → `processor.py`
 
 - **cli.py** - Argparse entry point, orchestrates the generation workflow
 - **config.py** - Built-in defaults and config-related helpers used by the planner/runtime
 - **detector.py** - Project type detection from file patterns (pyproject.toml → python, etc.)
-- **generator.py** - OpenRouter API client (OpenAI-compatible), prompt template builder
+- **generator.py** - AgentBridge API client (OpenAI-compatible), prompt template builder
 - **processor.py** - Pillow-based image processing: chromakey→transparent, trim, compress
 
 **Runtime config**: built-in defaults + command-line overrides only
 
-**API key sources** (checked in order): `OPENROUTER_API_KEY` env var → `~/.config/repologogen/.env`
+**Gateway settings**: `AGENTBRIDGE_BASE_URL` defaults to `http://127.0.0.1:8082/api/v1`;
+`AGENTBRIDGE_API_KEY` is an optional access token read only from the environment.
 
 ## Code Style
 

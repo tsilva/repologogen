@@ -3,12 +3,10 @@
 import json
 from unittest.mock import Mock, patch
 
-import pytest
 from PIL import Image
 
 from repologogen.generator import (
     ImageGenerator,
-    ImageGeneratorError,
     build_prompt,
     digest_readme,
     extract_repo_metadata,
@@ -19,16 +17,13 @@ from repologogen.generator import (
 class TestImageGenerator:
     """Test ImageGenerator class."""
 
-    def test_raises_error_without_api_key(self, monkeypatch):
-        """Test that missing API key raises error."""
-        monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    def test_allows_gateway_without_api_key(self, monkeypatch):
+        """Test that the gateway token is optional."""
+        monkeypatch.delenv("AGENTBRIDGE_API_KEY", raising=False)
         # Mock get_api_key to return None (patch where it's used, not where it's defined)
         monkeypatch.setattr("repologogen.generator.get_api_key", lambda project_path=None: None)
 
-        with pytest.raises(ImageGeneratorError) as exc_info:
-            ImageGenerator()
-
-        assert "API key required" in str(exc_info.value)
+        assert ImageGenerator().api_key == "not-needed"
 
     def test_uses_provided_api_key(self):
         """Test that provided API key is used."""
@@ -37,7 +32,7 @@ class TestImageGenerator:
 
     def test_uses_env_var_api_key(self, monkeypatch):
         """Test that environment variable API key is used."""
-        monkeypatch.setenv("OPENROUTER_API_KEY", "env-key")
+        monkeypatch.setenv("AGENTBRIDGE_API_KEY", "env-key")
         generator = ImageGenerator()
         assert generator.api_key == "env-key"
 
@@ -285,7 +280,7 @@ class TestDigestReadme:
             # Verify the API was called with correct model
             call_args = mock_client.post.call_args
             payload = call_args[1]["json"]
-            assert payload["model"] == "google/gemini-3.8-flash"
+            assert payload["model"] == "openrouter/google/gemini-3.8-flash"
 
     def test_returns_empty_on_api_error(self):
         """Test graceful fallback on API error."""

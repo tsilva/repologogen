@@ -487,13 +487,9 @@ def _write_web_target_manifest(
         if item.target != "web-seo":
             continue
         if item.key == "web-seo-android-chrome-192":
-            icons.append(
-                {"src": "android-chrome-192.png", "sizes": "192x192", "type": "image/png"}
-            )
+            icons.append({"src": "android-chrome-192.png", "sizes": "192x192", "type": "image/png"})
         elif item.key == "web-seo-android-chrome-512":
-            icons.append(
-                {"src": "android-chrome-512.png", "sizes": "512x512", "type": "image/png"}
-            )
+            icons.append({"src": "android-chrome-512.png", "sizes": "512x512", "type": "image/png"})
 
     write_site_webmanifest(
         webmanifest_item.output_path,
@@ -751,9 +747,7 @@ def _generate_core_brand(
                 )
             elif item.strategy == "generated_from_logo_reference":
                 asset_name = (
-                    "social_card"
-                    if item.kind in {"social-card", "feature-graphic"}
-                    else item.kind
+                    "social_card" if item.kind in {"social-card", "feature-graphic"} else item.kind
                 )
                 try:
                     _generate_asset(
@@ -866,9 +860,7 @@ def run_generation(
             tolerance=tolerance if tolerance is not None else defaults.tolerance,
             output_path=output_path or defaults.output_path,
             compress_quality=(
-                compress_quality
-                if compress_quality is not None
-                else defaults.compress_quality
+                compress_quality if compress_quality is not None else defaults.compress_quality
             ),
             trim_margin=trim_margin if trim_margin is not None else defaults.trim_margin,
             assets_dir=resolved_assets_dir or defaults.assets_dir,
@@ -934,7 +926,8 @@ def run_generation(
     except ImageGeneratorError as error:
         console.print(f"[bold red]Error:[/bold red] {error}")
         console.print(
-            "[dim]Set OPENROUTER_API_KEY in the environment or in ~/.config/repologogen/.env[/dim]"
+            "[dim]Configure AgentBridge; set AGENTBRIDGE_API_KEY only when "
+            "gateway authentication is required[/dim]"
         )
         return 1
 

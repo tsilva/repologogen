@@ -9,6 +9,8 @@ from typing import Any
 
 import httpx
 
+from repologogen.agentbridge import base_url as gateway_base_url
+from repologogen.agentbridge import model_id
 from repologogen.config import get_api_key
 
 
@@ -36,19 +38,13 @@ class ImageGenerator:
     def __init__(
         self,
         api_key: str | None = None,
-        base_url: str = "https://openrouter.ai/api/v1",
+        base_url: str | None = None,
         timeout: float = 120.0,
         project_path: Path | None = None,
     ):
         """Initialize the image generator."""
-        self.api_key = api_key or get_api_key(project_path)
-        if not self.api_key:
-            raise ImageGeneratorError(
-                "API key required. Set OPENROUTER_API_KEY in the environment or "
-                "~/.config/repologogen/.env."
-            )
-
-        self.base_url = base_url.rstrip("/")
+        self.api_key = api_key or get_api_key(project_path) or "not-needed"
+        self.base_url = gateway_base_url(base_url)
         self.timeout = timeout
 
     def generate(
@@ -78,7 +74,7 @@ class ImageGenerator:
                 )
 
         payload = {
-            "model": model,
+            "model": model_id(model),
             "messages": [{"role": "user", "content": message_content}],
             "modalities": ["image", "text"],
             "image_config": {
@@ -119,7 +115,7 @@ class ImageGenerator:
                 else:
                     raise ImageGeneratorError(f"Unexpected image URL format: {image_url[:50]}...")
 
-                return {"success": True, "model": model, "output_path": str(output_path)}
+                return {"success": True, "model": model_id(model), "output_path": str(output_path)}
 
         except httpx.HTTPStatusError as e:
             if reference_images:
@@ -262,7 +258,7 @@ def digest_readme(
     readme_content: str,
     api_key: str,
     text_model: str = "google/gemini-3.8-flash",
-    base_url: str = "https://openrouter.ai/api/v1",
+    base_url: str | None = None,
 ) -> str:
     """Send README content to an LLM to produce a concise project description.
 
@@ -284,7 +280,7 @@ def digest_readme(
     }
 
     payload = {
-        "model": text_model,
+        "model": model_id(text_model),
         "messages": [
             {
                 "role": "system",
@@ -301,7 +297,7 @@ def digest_readme(
     try:
         with httpx.Client(timeout=30.0) as client:
             response = client.post(
-                f"{base_url.rstrip('/')}/chat/completions", headers=headers, json=payload
+                f"{gateway_base_url(base_url)}/chat/completions", headers=headers, json=payload
             )
             response.raise_for_status()
             data = response.json()
@@ -319,7 +315,7 @@ def extract_repo_metadata(
     *,
     project_description: str = "",
     text_model: str = "google/gemini-3.8-flash",
-    base_url: str = "https://openrouter.ai/api/v1",
+    base_url: str | None = None,
 ) -> dict[str, Any]:
     """Extract minimal reusable metadata fields for bundle manifests."""
     if not readme_content.strip():
@@ -331,7 +327,7 @@ def extract_repo_metadata(
     }
 
     payload = {
-        "model": text_model,
+        "model": model_id(text_model),
         "messages": [
             {
                 "role": "system",
@@ -360,7 +356,7 @@ def extract_repo_metadata(
     try:
         with httpx.Client(timeout=30.0) as client:
             response = client.post(
-                f"{base_url.rstrip('/')}/chat/completions", headers=headers, json=payload
+                f"{gateway_base_url(base_url)}/chat/completions", headers=headers, json=payload
             )
             response.raise_for_status()
             data = response.json()
@@ -383,7 +379,7 @@ def refine_prompt(
     target_model: str,
     api_key: str,
     text_model: str = "google/gemini-3.8-flash",
-    base_url: str = "https://openrouter.ai/api/v1",
+    base_url: str | None = None,
 ) -> str:
     """Refine an image-generation prompt via LLM to remove redundancy and contradictions.
 
@@ -406,7 +402,7 @@ def refine_prompt(
     }
 
     payload = {
-        "model": text_model,
+        "model": model_id(text_model),
         "messages": [
             {
                 "role": "system",
@@ -429,7 +425,7 @@ def refine_prompt(
     try:
         with httpx.Client(timeout=30.0) as client:
             response = client.post(
-                f"{base_url.rstrip('/')}/chat/completions", headers=headers, json=payload
+                f"{gateway_base_url(base_url)}/chat/completions", headers=headers, json=payload
             )
             response.raise_for_status()
             data = response.json()

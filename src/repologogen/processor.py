@@ -5,6 +5,7 @@ import shutil
 import tempfile
 from collections.abc import Iterable
 from pathlib import Path
+from typing import cast
 
 from PIL import Image, ImageColor, ImageDraw, ImageFont
 
@@ -86,13 +87,14 @@ def chromakey_to_transparent(
 
     img = Image.open(input_path).convert("RGBA")
     pixels = img.load()
+    assert pixels is not None
     width, height = img.size
     transparent_pixels = 0
     total = width * height
 
     for y in range(height):
         for x in range(width):
-            r, g, b, a = pixels[x, y]
+            r, g, b, a = cast(tuple[int, int, int, int], pixels[x, y])
             distance = (abs(r - key_rgb[0]) + abs(g - key_rgb[1]) + abs(b - key_rgb[2])) / 3
             if distance <= tolerance:
                 pixels[x, y] = (0, 0, 0, 0)
@@ -136,10 +138,7 @@ def trim_transparent(input_path: Path, output_path: Path, margin: int = 5) -> di
     )
 
     cropped = img.crop(expanded_bbox)
-    try:
-        resized = cropped.resize((original_width, original_height), Image.Resampling.LANCZOS)
-    except AttributeError:
-        resized = cropped.resize((original_width, original_height), Image.LANCZOS)
+    resized = cropped.resize((original_width, original_height), Image.Resampling.LANCZOS)
 
     _save_image(resized, input_path, output_path)
 
@@ -279,9 +278,13 @@ def compose_marketing_graphic(
 
     brand_size = max(180, int(min(width, height) * 0.44))
     brand_frame = brand_size + max(48, int(brand_size * 0.2))
-    brand = Image.open(brand_image_path).convert("RGBA").resize(
-        (brand_size, brand_size),
-        Image.Resampling.LANCZOS,
+    brand = (
+        Image.open(brand_image_path)
+        .convert("RGBA")
+        .resize(
+            (brand_size, brand_size),
+            Image.Resampling.LANCZOS,
+        )
     )
     icon_bg = Image.new("RGBA", (brand_frame, brand_frame), (255, 255, 255, 18))
     icon_draw = ImageDraw.Draw(icon_bg)
@@ -320,7 +323,7 @@ def compose_marketing_graphic(
         title_start = max(96, int(height * 0.22))
 
     title_lines = _wrap_text(draw, title, title_font, text_width, max_lines=title_max_lines)
-    y_offset = title_start
+    y_offset: float = title_start
     for line in title_lines:
         draw.text((text_left, y_offset), line, fill=(255, 255, 255), font=title_font)
         line_bbox = draw.textbbox((text_left, y_offset), line, font=title_font)
@@ -399,7 +402,7 @@ def get_image_info(path: Path) -> dict[str, object]:
 
     if has_alpha and img.mode == "RGBA":
         alpha = img.split()[3]
-        transparent = sum(1 for p in alpha.getdata() if p == 0)
+        transparent = alpha.histogram()[0]
         total = alpha.size[0] * alpha.size[1]
         transparency_percent = round((transparent / total) * 100, 1)
 

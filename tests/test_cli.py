@@ -83,6 +83,7 @@ class TestRunGeneration:
 
     def test_core_brand_dry_run_prints_bundle_summary(self, tmp_path, monkeypatch):
         _set_test_console(monkeypatch)
+        monkeypatch.setattr(cli, "get_api_key", lambda project_path=None: None)
         (tmp_path / "pyproject.toml").write_text("[project]\nname='demo'\n")
         (tmp_path / "README.md").write_text("# Demo\nA project.")
 
@@ -108,6 +109,7 @@ class TestRunGeneration:
 
     def test_targets_imply_core_brand(self, tmp_path, monkeypatch):
         _set_test_console(monkeypatch)
+        monkeypatch.setattr(cli, "get_api_key", lambda project_path=None: None)
         (tmp_path / "pyproject.toml").write_text("[project]\nname='demo'\n")
         (tmp_path / "README.md").write_text("# Demo\nA project.")
 
@@ -209,17 +211,13 @@ class TestRunGeneration:
         assert (tmp_path / "web-seo-metadata.ts").exists()
 
         manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
-        next_metadata = json.loads(
-            (tmp_path / "web-seo-metadata.json").read_text(encoding="utf-8")
-        )
+        next_metadata = json.loads((tmp_path / "web-seo-metadata.json").read_text(encoding="utf-8"))
         next_module = (tmp_path / "web-seo-metadata.ts").read_text(encoding="utf-8")
         assert manifest["targets"] == ["web-seo", "google-play", "apple-store"]
         assert len(DummyGenerator.prompts) == 4
         assert DummyGenerator.prompts[2]["aspect_ratio"] == "16:9"
         assert DummyGenerator.prompts[3]["aspect_ratio"] == "16:9"
-        assert all(
-            len(prompt["reference_images"]) == 1 for prompt in DummyGenerator.prompts[1:]
-        )
+        assert all(len(prompt["reference_images"]) == 1 for prompt in DummyGenerator.prompts[1:])
         assert (
             next_metadata["openGraph"]["images"][0]["url"]
             == "/repologogen-assets/web-seo/og-image-1200x630.png"

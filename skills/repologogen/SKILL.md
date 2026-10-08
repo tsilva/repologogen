@@ -9,7 +9,7 @@ Use `repologogen` as a CLI-first branding workflow.
 
 ## Preconditions
 
-- `OPENROUTER_API_KEY` must be set in the environment or in `~/.config/repologogen/.env`.
+- AgentBridge must be reachable at `AGENTBRIDGE_BASE_URL` (default `http://127.0.0.1:8082/api/v1`). `AGENTBRIDGE_API_KEY` is optional gateway authentication; never request an upstream OpenRouter key.
 - Prefer the installed `repologogen` command on `PATH`.
 - Do not use project or user settings files. This tool is CLI/env only.
 

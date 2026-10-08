@@ -143,7 +143,6 @@ CONFIG_SCHEMA: dict[str, Any] = {
                 "social_card": ASSET_OVERRIDE_SCHEMA,
             },
         },
-        "openrouter_api_key": {"type": "string"},
     },
 }
 
@@ -365,12 +364,7 @@ def load_merged_config(
     return Config.from_dict(merged)
 
 
-def get_api_key(project_path: Path | None = None) -> str | None:
-    """Get OpenRouter API key from environment or ~/.config/repologogen/.env."""
+def get_api_key(project_path: Path | None = None) -> str:
+    """Return an optional gateway access token without reading upstream keys."""
     del project_path
-    api_key = os.getenv("OPENROUTER_API_KEY")
-    if api_key:
-        return api_key
-
-    env_file = Path(os.path.expanduser("~/.config/repologogen/.env"))
-    return _load_env_file_value(env_file, "OPENROUTER_API_KEY")
+    return os.getenv("AGENTBRIDGE_API_KEY") or "not-needed"

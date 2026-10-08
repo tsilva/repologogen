@@ -446,7 +446,7 @@ class TestGetApiKey:
     """Test API key resolution."""
 
     def test_prefers_environment_variable(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("OPENROUTER_API_KEY", "env-key")
+        monkeypatch.setenv("AGENTBRIDGE_API_KEY", "env-key")
         env_dir = tmp_path / ".config" / "repologogen"
         env_dir.mkdir(parents=True)
         (env_dir / ".env").write_text('OPENROUTER_API_KEY="file-key"\n')
@@ -454,8 +454,8 @@ class TestGetApiKey:
 
         assert get_api_key(tmp_path) == "env-key"
 
-    def test_reads_dotenv_fallback_when_env_missing(self, tmp_path, monkeypatch):
-        monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    def test_ignores_dotenv_when_gateway_token_missing(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("AGENTBRIDGE_API_KEY", raising=False)
         monkeypatch.setenv("HOME", str(tmp_path))
         env_dir = tmp_path / ".config" / "repologogen"
         env_dir.mkdir(parents=True)
@@ -463,10 +463,10 @@ class TestGetApiKey:
             "# comment\nexport OPENROUTER_API_KEY='file-key'\nOTHER=value\n"
         )
 
-        assert get_api_key(tmp_path) == "file-key"
+        assert get_api_key(tmp_path) == "not-needed"
 
-    def test_returns_none_when_no_env_source_exists(self, tmp_path, monkeypatch):
-        monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    def test_allows_gateway_without_token(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("AGENTBRIDGE_API_KEY", raising=False)
         monkeypatch.setenv("HOME", str(tmp_path))
 
-        assert get_api_key(tmp_path) is None
+        assert get_api_key(tmp_path) == "not-needed"
