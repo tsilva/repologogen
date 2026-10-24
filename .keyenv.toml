@@ -1,7 +1,0 @@
-# Optional gateway authentication only.
-[keyenv]
-version = 1
-
-[secrets.AGENTBRIDGE_API_KEY]
-account = "repologogen/AGENTBRIDGE_API_KEY"
-required = false
