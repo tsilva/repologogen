@@ -1,5 +1,5 @@
 ---
-name: repologogen
+name: repologogen_generate-brand-assets
 description: Use this skill when the user wants to generate or regenerate a repository logo, web brand pack, favicon/app icons, OG image, or platform branding with the repologogen CLI in any repo. Prefer this skill when the user explicitly mentions repologogen or asks for repo branding assets from the command line.
 ---
 

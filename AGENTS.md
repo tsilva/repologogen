@@ -41,6 +41,6 @@ Configured in `pyproject.toml`:
 ## Maintenance
 
 - README.md must be kept up to date with any significant project changes
-- The repo-owned Codex skill lives in `skills/repologogen/`
-- Any change to CLI flags, defaults, output paths, auth requirements, or workflow shortcuts must update `skills/repologogen/SKILL.md` and `skills/repologogen/agents/openai.yaml` if needed
+- The repo-owned Codex skill lives in `skills/repologogen_generate-brand-assets/`
+- Any change to CLI flags, defaults, output paths, auth requirements, or workflow shortcuts must update `skills/repologogen_generate-brand-assets/SKILL.md` and `skills/repologogen_generate-brand-assets/agents/openai.yaml` if needed
 - Keep `scripts/install_codex_skill.py` working whenever the skill layout changes
