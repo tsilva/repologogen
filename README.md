@@ -77,7 +77,7 @@ uv run mypy src/repologogen/                    # type check
   brand packs default to `repologogen-assets`. All output paths are relative to
   the target project unless absolute.
 - Brand packs write `<assets-dir>/manifest.json`; override it with `--manifest`.
-- Install or refresh the [repo-owned Codex skill](skills/repologogen/SKILL.md) with
+- Install or refresh [$repologogen_generate-brand-assets](skills/repologogen_generate-brand-assets/SKILL.md) with
   `python3 scripts/install_codex_skill.py` or `make install-skill`.
 
 ## License
