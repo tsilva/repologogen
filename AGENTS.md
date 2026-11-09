@@ -34,7 +34,7 @@ through AgentBridge.
 ## Code Style
 
 Configured in `pyproject.toml`:
-- **ruff**: line-length 100, double quotes, py310 target, select E/F/I/N/W/UP/B/C4/SIM
+- **ruff**: line-length 100, double quotes, py311 target, select E/F/I/N/W/UP/B/C4/SIM
 - **mypy**: strict mode enabled
 - **pytest**: testpaths=tests, `-v --tb=short`
 
