@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/tsilva/repologogen/blob/main/pyproject.toml"><img src="https://img.shields.io/badge/python-%E2%89%A53.10-blue" alt="Python 3.10 or newer" /></a>
+  <a href="https://github.com/tsilva/repologogen/blob/main/pyproject.toml"><img src="https://img.shields.io/badge/python-%E2%89%A53.11-blue" alt="Python 3.10 or newer" /></a>
   <a href="https://github.com/tsilva/repologogen/blob/main/LICENSE"><img src="https://img.shields.io/github/license/tsilva/repologogen" alt="MIT license" /></a>
 </p>
 
@@ -21,7 +21,7 @@ AgentBridge, which manages the upstream OpenRouter credentials.
 
 ## Install
 
-Requires Python 3.10+, [uv](https://docs.astral.sh/uv/getting-started/installation/), and a
+Requires Python 3.11+, [uv](https://docs.astral.sh/uv/getting-started/installation/), and a
 running AgentBridge gateway for generation. Install from source:
 
 ```bash
