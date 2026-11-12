@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "general": {
+    "domain": "https://app.infisical.com"
+  },
+  "secrets-management": {
+    "project-id": "ddf19903-99da-4a26-958e-c6d90f49eac2",
+    "environment": "dev",
+    "secret-path": "/agents/agentbridge"
+  }
+}
