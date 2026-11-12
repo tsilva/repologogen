@@ -1,3 +1,10 @@
+<!-- archive-repo:deprecation-notice:start -->
+> [!WARNING]
+> **Deprecated**
+>
+> Repologogen is no longer maintained. Coding agents now include native image generation, so a skill can create complete asset packs without a separate CLI. I now use Codex with the Create Image Assets skill.
+<!-- archive-repo:deprecation-notice:end -->
+
 <p align="center">
   <img src="https://raw.githubusercontent.com/tsilva/repologogen/main/logo.png" alt="repologogen" width="420" />
   <br />
