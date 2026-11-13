@@ -9,40 +9,27 @@ Use `repologogen` as a CLI-first branding workflow.
 
 ## Preconditions
 
-- Use the repository's reviewed `scripts/infisical/agentbridge_vault.py` for every agent-operated command, following `AGENTS.md` and the protected Repologogen profile. Missing or changed bindings stop explicitly; no raw gateway/provider key or cached login is a fallback.
-- Stage only selected non-secret inputs in a dedicated `.internal/agent-vault/work` subdirectory. The caller's repository is not the writable workspace. Inspect outputs there and copy only approved assets back after verification.
-- Prepend the launcher form below to the argument examples; never start the installed global CLI directly. Keep CLI/model/output choices and application defaults unchanged. No project or user settings file is introduced.
+Use an installed `repologogen` command, or run `uv run repologogen` from its
+checkout. The AgentBridge gateway must be available; configure its API URL and
+optional access token through the application's normal environment settings.
 
-```sh
-# REPOLOGOGEN_ROOT is the canonical checkout in the protected Repologogen profile.
-WORKSPACE="$REPOLOGOGEN_ROOT/.internal/agent-vault/work/branding"
-# PROJECT_BASENAME retains the caller's existing project directory name.
-STAGED_PROJECT="$WORKSPACE/$PROJECT_BASENAME"
-mkdir -p "$STAGED_PROJECT"
-python3 -I -S -B "$REPOLOGOGEN_ROOT/scripts/infisical/agentbridge_vault.py" check --workspace "$WORKSPACE"
-# Run generation only after the usual approval of outbound content.
-python3 -I -S -B "$REPOLOGOGEN_ROOT/scripts/infisical/agentbridge_vault.py" run --workspace "$WORKSPACE" -- "$STAGED_PROJECT" --web
-```
-
-The catalog check verifies transport, not provider authentication or inference.
-Stop if upstream authentication is known to be unavailable. Ordinary `--dry-run`
-can make text-model calls; planning without model requests requires `--dry-run --no-metadata
---var "PROJECT_DESCRIPTION=REVIEWED_DESCRIPTION"`. Real text/image requests still
-need their usual content approval.
+Ordinary `--dry-run` can make text-model calls. Planning without model requests
+requires `--dry-run --no-metadata --var "PROJECT_DESCRIPTION=REVIEWED_DESCRIPTION"`.
+Review outbound content before submitting model requests.
 
 ## Command Selection
 
-Choose the shortest argument list after the Vault launcher's `--`.
-`<staged-project>` is the selected project inside the reviewed workspace.
+Choose the shortest argument list after `repologogen`.
+`<project>` is the selected target repository.
 
 - README or root logo only:
-  `<staged-project>`
+  `<project>`
 - Web branding for a typical web app:
-  `<staged-project> --web`
+  `<project> --web`
 - Specific targets:
-  `<staged-project> --target web-seo --target google-play --target apple-store`
+  `<project> --target web-seo --target google-play --target apple-store`
 - Custom asset root:
-  `<staged-project> --target web-seo --assets-dir public/brand`
+  `<project> --target web-seo --assets-dir public/brand`
 - Custom style:
   add `-s "..."`.
 - Custom project name:
@@ -66,12 +53,3 @@ After generation:
 - Confirm the expected output files exist.
 - Report the main generated paths.
 - If the repo has a typed web app, run a lightweight verification step only when it is cheap and clearly relevant, such as `npm run typecheck`.
-
-## Agent-operated credential access
-
-Use the repository's opt-in `scripts/infisical/agentbridge_vault.py run` entrypoint
-with an explicit staging workspace for AgentBridge calls, following AGENTS.md.
-Keep the existing model/output choices. Do not load raw gateway keys or bypass a
-failed vault mapping. Provider inference and output content still need approval;
-catalog checks alone do not authorize generation. Only inline image responses
-are supported by the reviewed route.
